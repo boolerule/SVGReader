@@ -1,6 +1,6 @@
 {
-    "name": "Example File Reader",
-    "author": "Ultimaker",
+    "name": "SVG File Reader",
+    "author": "twosilly",
     "version": "1.0",
     "api": 5,
     "description": "Example file reader to instruct people on how to create Uranium file readers.",
