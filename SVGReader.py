@@ -5,6 +5,7 @@ from UM.Application import Application #To pass to the parent constructor.
 from UM.Mesh.MeshBuilder import MeshBuilder #To create a mesh to put in the scene.
 from UM.Mesh.MeshReader import MeshReader #This is the plug-in object we need to implement if we want to create meshes. Otherwise extend from FileReader.
 from UM.Math.Vector import Vector #Helper class required for MeshBuilder.
+from UM.Math.Matrix import Matrix
 from UM.Scene.SceneNode import SceneNode #The result we must return when reading.
 from UM.Job import Job
 from UM.Logger import Logger
@@ -33,19 +34,18 @@ class SVGFileReader(MeshReader):
             svg_file = svg.parse(file_name)  # 打开并解析svg文件
             #TODO:这里应该有一个判空
             #self._paths = self._vu.readSvg(file_name)
-            #svg_file.scale(0.2)
+            svg_file.scale(25.4/96) #我们计算出来的是像素点需要转换成mm
             svg_segments = svg_file.flatten()
-
             self._paths = []
             for d in svg_segments:
                 if hasattr(d, 'segments'):
                     for l in d.segments(1):
                         x, y = l[0].coord()
                         print("move:(%f,%f)" % (x, y))
-                        hull_poins1 = [Vector(x, y, 0)]
+                        hull_poins1 = [Vector(x=x, y=y, z=0)]
                         for pt in l[1:]:
                             x, y = pt.coord()
-                            hull_poins1.append(Vector(x, y, 0))
+                            hull_poins1.append(Vector(x=x, y=y, z=0))
                         self._paths.append(hull_poins1)
                 else:
                     Logger.log('e', "Unsupported SVG element")
@@ -67,101 +67,79 @@ class SVGFileReader(MeshReader):
             self._ui._slopeHeight, self._ui.closeTopButtonFace,
             self._ui.reversePathToration, self._ui.splitWord)
 
-
+        ##  创建场景节点
+        #   \param file_name 打开的文件的名字
+        #   \param offset, 偏移的角度
+        #   \param peak_height, 模型的高度
+        #   \param slopeHeight, 斜坡的高度
+        #   \param closeTopButtonFace, 是否生成一个封闭的顶底
+        #   \param reversePathToration, 反转路径
+        #   \param splitWord, 拆分模型
+        #   \return success
     def _generateSceneNode(self, file_name, offset, peak_height, slopeHeight,
                            closeTopButtonFace, reversePathToration, splitWord):
-        #Job.yieldThread()
-        # if not splitWord:
-        scene_node = SceneNode()
-        mesh = MeshBuilder()
-        # else:
-        #     scene_node = []
-        #TODO:
-        #self._paths.scale(0.2)
+        Job.yieldThread()
+        if not splitWord:
+            scene_node = SceneNode()
+            mesh = MeshBuilder()
+        else:
+             scene_node = []
+        #TODO:#创建一个转换矩阵，从3mf世界空间转换为我们的。
+        #第一步:翻转y轴和z轴。
+        transformation_matrix = Matrix()
+        transformation_matrix._data[1, 1] = 0
+        transformation_matrix._data[1, 2] = 1
+        transformation_matrix._data[2, 1] = -1
+        transformation_matrix._data[2, 2] = 0
         for poins in self._paths:
             indx = 0
             while indx < len(poins) -1:
                 print("Ver:",poins[indx])
-                a = poins[indx]
-                b = Vector(poins[indx].x, poins[indx].y, peak_height)
-                c = poins[indx+1]
+                a = poins[indx].multiply(transformation_matrix)
+                b = Vector(x=poins[indx].x, y=poins[indx].y, z=peak_height).multiply(transformation_matrix)
+                c = poins[indx+1].multiply(transformation_matrix)
                 #build_list.append(poins[indx],poins[indx])
-                mesh.addFace(a,b,c)
+                #mesh.addFace(a,b,c)
+                mesh.addFaceByPoints(a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z)
                 #下一个面
-                b1 = Vector(poins[indx+1].x, poins[indx+1].y, peak_height)
-                mesh.addFace(c, b1, b)
+                b1 = Vector(x=poins[indx+1].x, y=poins[indx+1].y, z=peak_height).multiply(transformation_matrix)
+                #mesh.addFace(c, b1, b)
+                mesh.addFaceByPoints(c.x, c.y, c.z, b1.x, b1.y,b1.z, b.x, b.y, b.z)
                 indx += 1
 
         areaTop = 0
         areaBottom = 0
-        pathDetectNotEqual = False
-        # for subPaths in self._paths:
-        #     if splitWord:
-        #         mesh = MeshBuilder()
-        #     pros = self._vu._gen_offset_paths(subPaths)
-        #     clocks = []
-        #     for path in subPaths:
-        #         reverse = file_name.endswith('.nc')
-        #         if reverse == (not reversePathToration):
-        #             path.reverse()
-        #         (clock, holePoint) = self._vu.clockWish(path)
-        #         clocks.append(clock)
-        #
-        #     lastPaths = self._vu._exec_offset(pros, clocks, 0)
-        #     if offset != 0:
-        #         currPaths = lastPaths
-        #         self._vu.addSidFaces(lastPaths, currPaths, clocks, mesh, 0,
-        #                              peak_height - slopeHeight)
-        #         currPaths = self._vu._exec_offset(pros, clocks, offset)
-        #         pathDetectNotEqual = self._vu.addSidFaces(
-        #             lastPaths, currPaths, clocks, mesh,
-        #             peak_height - slopeHeight, peak_height)
-        #     else:
-        #         currPaths = lastPaths
-        #         self._vu.addSidFaces(lastPaths, currPaths, clocks, mesh, 0,
-        #                              peak_height)
-        #     if closeTopButtonFace:
-        #         areaTop += self._vu.addTopButtonFace(True, currPaths, mesh,
-        #                                              peak_height)
-        #         areaBottom += self._vu.addTopButtonFace(False, lastPaths, mesh,
-        #                                                 0)
-        #     if splitWord:
-        #         mesh.calculateNormals(fast=True)
-        #         _sceneNode = SceneNode()
-        #         _sceneNode.setMeshData(mesh.build())
-        #         scene_node.append(_sceneNode)
-        # if not splitWord:
-        #     mesh.calculateNormals(fast=True)
-        #     scene_node.setMeshData(mesh.build())
-        # else:
-        #     scene_node.reverse()
+        pathDetectNotEqual = False #路径检测不相等
         #TODO:要记得高开
-        # if closeTopButtonFace:
-        #     if pathDetectNotEqual:
-        #         m = Message(i18n_catalog.i18nc(
-        #             '@info:status',
-        #             'Top/Buttom area :{} mm\xc2\xb2 ,{} mm\xc2\xb2\n There may be broken, please reduce the offset',
-        #             round(areaTop, 2), round(areaBottom, 2)),
-        #             lifetime=0)
-        #     else:
-        #         m = Message(i18n_catalog.i18nc(
-        #             '@info:status',
-        #             'Top/Buttom area :{} mm\xc2\xb2 ,{} mm\xc2\xb2', round(
-        #                 areaTop, 2), round(areaBottom, 2)),
-        #             lifetime=0)
-        #     m.addAction('regenerate', i18n_catalog.i18nc('@action:button',
-        #                                                  'regenerate'),
-        #                 'regenerate', i18n_catalog.i18nc('@info:tooltip',
-        #                                                  'Regenerating model'))
-        #     m._filename = file_name
-        #     m.actionTriggered.connect(self._onMessageActionTriggered)
-        #     m.show()
+        if closeTopButtonFace:
+            if pathDetectNotEqual:
+                m = Message(i18n_catalog.i18nc(
+                    '@info:status',
+                    'Top/Buttom area :{} mm² ,{} mm²\n There may be broken, please reduce the offset',
+                    round(areaTop, 2), round(areaBottom, 2)),
+                    lifetime=0)
+            else:
+                m = Message(i18n_catalog.i18nc(
+                    '@info:status',
+                    'Top/Buttom area :{} mm² ,{} mm²', round(
+                        areaTop, 2), round(areaBottom, 2)),
+                    lifetime=0)
+                m.addAction('regenerate', i18n_catalog.i18nc('@action:button',
+                                                             'regenerate'),
+                            'regenerate', i18n_catalog.i18nc('@info:tooltip',
+                                                             'Regenerating model'))
+            m._filename = file_name
+            m.actionTriggered.connect(self._onMessageActionTriggered)
+            m.show()
 
         mesh.calculateNormals()
 
         # 将网格放到场景节点中。
         #result_node = SceneNode()
         scene_node.setMeshData(mesh.build())
+
+
+        #scene_node.setMirror(transformation_matrix)
         scene_node.setName(file_name)  # Ty举例来说，网格起源的文件名是节点的好名字。
         return scene_node
 
