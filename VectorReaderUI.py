@@ -90,13 +90,14 @@ class VectorReaderUI(QObject):
         if self._ui_view is None:
             self._createConfigUI()
         self._ui_view.show()
-        self._ui_view.findChild(QObject, 'Offset').setProperty('text', str(self._offset))
-        self._ui_view.findChild(QObject, 'SlopHeight').setProperty('text', str(self._slopeHeight))
-        self._disable_size_callbacks = False
+        #self._ui_view.findChild(QObject, 'Offset').setProperty('text', str(self._offset))
+        #self._ui_view.findChild(QObject, 'SlopHeight').setProperty('text', str(self._slopeHeight))
+        #self._disable_size_callbacks = False
         self._ui_view.findChild(QObject, 'Peak_Height').setProperty('text', str(self.peak_height))
-        self._ui_view.findChild(QObject, 'closeTopButtonFace').setProperty('checked', self.closeTopButtonFace)
-        self._ui_view.findChild(QObject, 'reversePathToration').setProperty('checked', self.reversePathToration)
-        self._ui_view.findChild(QObject, 'splitWord').setProperty('checked', self.splitWord)
+        #TODO：被屏蔽的待做的功能 单选框
+        #self._ui_view.findChild(QObject, 'closeTopButtonFace').setProperty('checked', self.closeTopButtonFace)
+        #self._ui_view.findChild(QObject, 'reversePathToration').setProperty('checked', self.reversePathToration)
+        #self._ui_view.findChild(QObject, 'splitWord').setProperty('checked', self.splitWord)
 
     
     def _createConfigUI(self):
