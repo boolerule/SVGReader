@@ -18,11 +18,6 @@ import UM.Math.Color as Color
 
 import svg
 from .import polygon
-from collision import Concave_Poly,collide #为了检测多边形是否包含
-#from scipy.spatial import Delaunay
-#from .delaunay import *
-#from .test import testPath
-#from .delaunay import Delaunay_Triangulation,Delaunay_Point
 from .triangulate import *
 #import delaunay as DT
 #from .Point import * #为了点计算
@@ -33,7 +28,7 @@ import matplotlib.tri as tri
 import math
 import numpy as np
 import time
-import polytri
+
 
 class SVGFileReader(MeshReader):
 
@@ -42,7 +37,7 @@ class SVGFileReader(MeshReader):
         self._supported_extensions = [".svg"] #抱歉，你还必须在这里指定它。
         self._ui = VectorReaderUI(self)
         self._paths = None
-        self._Points = None
+        #self._Points = None
         self.poly_count = 0 #多边形个数 用了判断可不可以拆分--> 应该吧计算出来的东西放在一个结构里面 而不是直接这么用
 
 
@@ -92,9 +87,9 @@ class SVGFileReader(MeshReader):
             print("bbox:",svg_file.bbox())
             svg_segments = svg_file.flatten()
             self._paths = []
-            self._Points = []
-            v = Vector
-            Point_s = []
+            #self._Points = []
+            #v = Vector
+            #Point_s = []
             def MM2Int(a):
                 return (a*1)
             #poly_count = 0 #多边形个数 用了判断可不可以拆分
@@ -105,16 +100,16 @@ class SVGFileReader(MeshReader):
                         print("move:(%f,%f)" % (x, y))
                         #hull_poins1 = [Vector(x=x, y=y, z=0)]
                         hull_poins1 = [[x,y]]
-                        Point_s = [v(MM2Int(x), MM2Int(y))]
+                       # Point_s = [[MM2Int(x), MM2Int(y)]]
                         self.poly_count += 1 #多边形个数 用了判断可不可以拆分
                         for pt in l[1:]:
                             x, y = pt.coord()
                             #hull_poins1.append(Vector(x=x, y=y, z=0))
                             hull_poins1.append([x,y])
-                            Point_s.append(v(MM2Int(x), MM2Int(y)))
+                            #Point_s.append([MM2Int(x), MM2Int(y)])
                         hull_poins1.append(hull_poins1[0])
                         self._paths.append(hull_poins1)
-                        self._Points.append(Point_s)
+                        #self._Points.append(Point_s)
                     #self._Points.append(point_list)
                 else:
                     Logger.log('e', "Unsupported SVG element")
@@ -125,21 +120,21 @@ class SVGFileReader(MeshReader):
             Logger.log('e', "Conn't load paths.")
             return MeshReader.PreReadResult.failed
         #TODO：我打算通过算交集来算出他们是否相交这是不合理的，暂时用着
-        if self.poly_count >= 2:
-            for index in  range(1,len(self._paths)):
-                temp = polygon.polygonCollision(np.array(self._paths[index - 1]),np.array(self._paths[index]))
-                print("Temp:",temp)
-
-                if not isinstance(temp , bool):
-                    self.Show(self._paths, "solution-" + str(temp), 2)
-        else:
-            self._Split = False #多边形少于2
+        # if self.poly_count >= 2:
+        #     for index in  range(1,len(self._paths)):
+        #         temp = polygon.polygonCollision(np.array(self._paths[index - 1]),np.array(self._paths[index]))
+        #         print("Temp:",temp)
+        #
+        #         if not isinstance(temp , bool):
+        #             self.Show(self._paths, "solution-" + str(temp), 2)
+        # else:
+        #     self._Split = False #多边形少于2
         #整理一下数据
-        count = len(self._Points)
-
-        result = []
-        Curr_orientation = True #顺时针为正 逆时针为负
-        Prev_orientation = True
+        # count = len(self._Points)
+        #
+        # result = []
+        # Curr_orientation = True #顺时针为正 逆时针为负
+        # Prev_orientation = True
         #TODO:当存在多个模型嵌套时，他们的方向要是相反的
         # for index in range(len(self._Points)):
         #     if len(self._Points[index]) == 2:
@@ -155,31 +150,31 @@ class SVGFileReader(MeshReader):
         #         self._Points[index] = self._Points[index][:]
         #     Prev_orientation = Curr_orientation
 
-        #链接多个模型
-
-        for index in range(1,len(self._Points)):
-            endPoint1 = self._Points[index - 1][len(self._Points[index - 1]) - 1]
-            self._Points[index].insert(0, endPoint1)#开头加一个
-            self._Points[index].append(endPoint1)#后面加一个
-        reult = self._Points[0]
-        for index in range(1,len(self._Points)):
-            reult = np.concatenate([reult,self._Points[index]])
-
-        self._Points = reult
+        # #链接多个模型
+        #
+        # for index in range(1,len(self._Points)):
+        #     endPoint1 = self._Points[index - 1][len(self._Points[index - 1]) - 1]
+        #     self._Points[index].insert(0, endPoint1)#开头加一个
+        #     self._Points[index].append(endPoint1)#后面加一个
+        # reult = self._Points[0]
+        # for index in range(1,len(self._Points)):
+        #     reult = np.concatenate([reult,self._Points[index]])
+        #
+        # self._Points = reult
         #Point_s = expand_polygon(reult)
        # self.Show(self._Points,"SB",1)
-        i = 0
-        name = "./output" + svg_file.title() + ".txt"
-        f = open(name, 'w')
-        for point_s in self._paths:
-            index = len(point_s)
-            f.write(str(index)+"\n")
-            #for point_s in self._paths:
-            for point in point_s:
-                f.write(str(point)+"\n")
-
-            i += 1
-        f.close()
+       #  i = 0
+       #  name = "./output" + svg_file.title() + ".txt"
+       #  f = open(name, 'w')
+       #  for point_s in self._paths:
+       #      index = len(point_s)
+       #      f.write(str(index)+"\n")
+       #      #for point_s in self._paths:
+       #      for point in point_s:
+       #          f.write(str(point)+"\n")
+       #
+       #      i += 1
+       #  f.close()
 
         start = time.clock()
 
@@ -275,29 +270,28 @@ class SVGFileReader(MeshReader):
             因为向量叉积是这两个向量平面的法向量，如果两个向量平行无法形成一个平面，其对应也没有平面法向量。所以，两个向量平行时，其向量叉积为零。
             """
             # 创建一个三角;Delaunay三角剖分法没有创建三角形。
-            #TODO:上下底
-            # tri = []
-            # plist = self._Points[::-1] if IsClockwise(self._Points) else self._Points[:]
-            # while len(plist) >= 3:
-            #     if len(plist) == 10:
-            #         print("SB:",plist[0])
-            #     a ,b= GetEar(plist)
-            #     if a == []:
-            #         break
-            #     tri.append(a)
-            #     plist = numpy.delete(plist, b, axis=0)
-            # ppp = []
-            # for tt in tri:
-            #     for p in tt:
-            #         ppp.append(p)
-            #     v0 = Vector(x=tt[0][0], y=tt[0][1], z=0).multiply(transformation_matrix)
-            #     v1 = Vector(x=tt[1][0], y=tt[1][1], z=0).multiply(transformation_matrix)
-            #     v2 = Vector(x=tt[2][0], y=tt[2][1], z=0).multiply(transformation_matrix)
-            #     mesh.addFace(v0,v1,v2)
-            #     v0 = Vector(x=tt[0][0], y=tt[0][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #     v1 = Vector(x=tt[1][0], y=tt[1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #     v2 = Vector(x=tt[2][0], y=tt[2][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #     mesh.addFace(v0,v1,v2)
+            if closeTopButtonFace:
+                #TODO:上下底
+                tri = []
+                plist = self._paths[0][::-1] if IsClockwise(self._paths[0]) else self._paths[0][:]
+                while len(plist) >= 3:
+                    a ,b= GetEar(plist)
+                    if a == []:
+                        break
+                    tri.append(a)
+                    plist = numpy.delete(plist, b, axis=0)
+                ppp = []
+                for tt in tri:
+                    for p in tt:
+                        ppp.append(p)
+                    v0 = Vector(x=tt[0][0], y=tt[0][1], z=0).multiply(transformation_matrix)
+                    v1 = Vector(x=tt[1][0], y=tt[1][1], z=0).multiply(transformation_matrix)
+                    v2 = Vector(x=tt[2][0], y=tt[2][1], z=0).multiply(transformation_matrix)
+                    mesh.addFace(v0,v1,v2)
+                    v0 = Vector(x=tt[0][0], y=tt[0][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
+                    v1 = Vector(x=tt[1][0], y=tt[1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
+                    v2 = Vector(x=tt[2][0], y=tt[2][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
+                    mesh.addFace(v0,v1,v2)
             #
             # self.Show(ppp,"qqqq",1)
                 #mesh.addConvexPolygonExtrusion(poins,1,10)
@@ -317,7 +311,7 @@ class SVGFileReader(MeshReader):
                     #     scale_Paths.append(pyclipper.scale_to_clipper(self._paths[index], offset))
             else:
                 scale_Paths = pyclipper.scale_to_clipper(self._paths, offset)
-            self.Show(scale_Paths,"scale_Paths",2)
+            #self.Show(scale_Paths,"scale_Paths",2)
             #path_s = self._paths
             #bbb = scale_polygon(self._paths[0], offset_set)
             #self.Show(bbb, "bbb", 1)
@@ -333,21 +327,10 @@ class SVGFileReader(MeshReader):
                 for index in range(len(scale_Paths[path_index])):
                     scale_Paths[path_index][index][0] -=  X_offset
                     scale_Paths[path_index][index][1] -=  Y_offset
-                self.Show(scale_Paths[path_index], "scale_Paths[path_index]", 1)
-            # while index < len(aaa) -1:
-            #     # if aaa[index][0] > X_offset:
-            #     #     aaa[index][0] += offset
-            #     # else:
-            #     #     aaa[index][0] -= offset
-            #     # if aaa[index][1] > Y_offset:
-            #     #     aaa[index][1] += offset
-            #     # else:
-            #     #     aaa[index][1] -= offset
-            #     aaa[index][0] +=  X_offset
-            #     aaa[index][1] +=  Y_offset
-            #     index += 1
+                #self.Show(scale_Paths[path_index], "scale_Paths[path_index]", 1)
 
 
+            #TODO:偏移点
             for _index in range(len(self._paths)):
                 indx = 0
                 while indx < len(self._paths[_index]) - 1:
@@ -366,57 +349,60 @@ class SVGFileReader(MeshReader):
                     # mesh.addFace(c, b1, b)
                     mesh.addFaceByPoints(a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, c1.x, c1.y, c1.z)
                     indx += 1
-
+            #TODO:计算面积
+            for i in range(len(self._paths)):
+                areaTop += abs(pyclipper.Area(self._paths[i]))#TODO:面积
+                areaBottom += abs(pyclipper.Area(scale_Paths[i]))
             #self.Show(scale_Paths[_index], "aaa", 2)
-            pcOffset = pyclipper.PyclipperOffset()
-            pcOffset.AddPaths(self._paths, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDLINE)
-            result = pcOffset.Execute(offset)
-            i = 0
-
-            for point_s in result:
-                index = len(point_s)
-                name = "./result_"+ str(offset)+ "倍"+str(i)+".txt"
-                f = open(name, 'w')
-                f.write(str(index) + "\n")
-                # for point_s in self._paths:
-                for point in point_s:
-                    f.write(str(point) + "\n")
-                f.close()
-                i += 1
-
-            self.Show(result[0], "result[0]", 1)
-            self.Show(result, "result", 2)
-            for path in self._paths:
-                pcOffset = pyclipper.PyclipperOffset()
-                pcOffset.AddPath(path, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDLINE)
-                result = pcOffset.Execute(offset)
-                #由于一些模型路径的关系我们只能用第一个链表
-                if len(result) > 1:
-                    m = Message(i18n_catalog.i18nc(
-                        '@warning:status',
-                        '模型偏移后的数据出现异常，这可能导致偏移部分的精度有一定误差！'),
-                        lifetime=0)
-                    m.addAction("MoreInfo", name=i18n_catalog.i18nc("@action:button", "More info"), icon=None,
-                               description=i18n_catalog.i18nc("@action:tooltip",
-                                                         "有问题请找twosilly."),
-                               button_style=Message.ActionButtonStyle.LINK)
-                    m._filename = file_name
-                    m.actionTriggered.connect(self._onMessageActionTriggered)
-                    m.show()
-                self.Show(path, "path", 1)
-                result[0].append(result[0][0])
-                self.Show(result[0],"result[0]",1)
-                i = 0
-                for point_s in result:
-                    index = len(point_s)
-                    name = "./result" + str(i) + ".txt"
-                    f = open(name, 'w')
-                    f.write(str(index) + "\n")
-                    # for point_s in self._paths:
-                    for point in point_s:
-                        f.write(str(point) + "\n")
-                    f.close()
-                    i += 1
+            # pcOffset = pyclipper.PyclipperOffset()
+            # pcOffset.AddPaths(self._paths, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDLINE)
+            # result = pcOffset.Execute(offset)
+            # i = 0
+            #
+            # for point_s in result:
+            #     index = len(point_s)
+            #     name = "./result_"+ str(offset)+ "倍"+str(i)+".txt"
+            #     f = open(name, 'w')
+            #     f.write(str(index) + "\n")
+            #     # for point_s in self._paths:
+            #     for point in point_s:
+            #         f.write(str(point) + "\n")
+            #     f.close()
+            #     i += 1
+            #
+            # self.Show(result[0], "result[0]", 1)
+            # self.Show(result, "result", 2)
+            # for path in self._paths:
+            #     pcOffset = pyclipper.PyclipperOffset()
+            #     pcOffset.AddPath(path, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDLINE)
+            #     result = pcOffset.Execute(offset)
+            #     #由于一些模型路径的关系我们只能用第一个链表
+            #     if len(result) > 1:
+            #         m = Message(i18n_catalog.i18nc(
+            #             '@warning:status',
+            #             '模型偏移后的数据出现异常，这可能导致偏移部分的精度有一定误差！'),
+            #             lifetime=0)
+            #         m.addAction("MoreInfo", name=i18n_catalog.i18nc("@action:button", "More info"), icon=None,
+            #                    description=i18n_catalog.i18nc("@action:tooltip",
+            #                                              "有问题请找twosilly."),
+            #                    button_style=Message.ActionButtonStyle.LINK)
+            #         m._filename = file_name
+            #         m.actionTriggered.connect(self._onMessageActionTriggered)
+            #         m.show()
+            #     self.Show(path, "path", 1)
+            #     result[0].append(result[0][0])
+            #     self.Show(result[0],"result[0]",1)
+            #     i = 0
+            #     for point_s in result:
+            #         index = len(point_s)
+            #         name = "./result" + str(i) + ".txt"
+            #         f = open(name, 'w')
+            #         f.write(str(index) + "\n")
+            #         # for point_s in self._paths:
+            #         for point in point_s:
+            #             f.write(str(point) + "\n")
+            #         f.close()
+            #         i += 1
             #
             #     #temp_path = path + result[0]
             #

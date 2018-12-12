@@ -120,27 +120,27 @@ UM.Dialog
             }
         }
 //TODO：暂时屏蔽还没做好的功能
-//        UM.TooltipArea {
-//            Layout.fillWidth:true
-//            height: childrenRect.height
-//            text: catalog.i18nc("@info:tooltip","Closed top and bottom will generate a closed entity, but it does not affect the normal slicing. Closing a non normal path may cause a program to collapse.")
-//            Row {
-//                width: parent.width
-//
-//                CheckBox {
-//                      id: closeTopButtonFace
-//                      objectName: "closeTopButtonFace"
-//                      checked: true
-//                      onClicked: {
-//                          manager.oncloseTopButtonFaceChanged(checked)
-//
-//                      }
-//                      text: catalog.i18nc("@label", "Close top and bottom faces")
-//
-//                      style: UM.Theme.styles.checkbox
-//                  }
-//            }
-//        }
+        UM.TooltipArea {
+            Layout.fillWidth:true
+            height: childrenRect.height
+            text: catalog.i18nc("@info:tooltip","Closed top and bottom will generate a closed entity, but it does not affect the normal slicing. Closing a non normal path may cause a program to collapse.")
+            Row {
+                width: parent.width
+
+                CheckBox {
+                      id: closeTopButtonFace
+                      objectName: "closeTopButtonFace"
+                      checked: true
+                      onClicked: {
+                          manager.oncloseTopButtonFaceChanged(checked)
+
+                      }
+                      text: catalog.i18nc("@label", "Close top and bottom faces")
+
+                      style: UM.Theme.styles.checkbox
+                  }
+            }
+        }
 //
 //        UM.TooltipArea {
 //            Layout.fillWidth:true
@@ -165,27 +165,27 @@ UM.Dialog
 //            }
 //        }
 //
-        UM.TooltipArea {
-            Layout.fillWidth:true
-            height: childrenRect.height
-            text: catalog.i18nc("@info:tooltip","Usually only SVG format files can be split normally")
-            Row {
-                width: parent.width
-
-                CheckBox {
-                      id: splitWord
-                      objectName: "splitWord"
-                      checked: true
-                      onClicked: {
-                          manager.onsplitWordChanged(checked)
-
-                      }
-                      text: catalog.i18nc("@label", "Split all the characters into a single model")
-
-                      style: UM.Theme.styles.checkbox
-                  }
-            }
-        }
+//        UM.TooltipArea {
+//            Layout.fillWidth:true
+//            height: childrenRect.height
+//            text: catalog.i18nc("@info:tooltip","Usually only SVG format files can be split normally")
+//            Row {
+//                width: parent.width
+//
+//                CheckBox {
+//                      id: splitWord
+//                      objectName: "splitWord"
+//                      checked: true
+//                      onClicked: {
+//                          manager.onsplitWordChanged(checked)
+//
+//                      }
+//                      text: catalog.i18nc("@label", "Split all the characters into a single model")
+//
+//                      style: UM.Theme.styles.checkbox
+//                  }
+//            }
+//        }
 /*
         UM.TooltipArea {
             Layout.fillWidth:true

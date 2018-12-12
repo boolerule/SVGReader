@@ -23,8 +23,8 @@ class VectorReaderUI(QObject):
         self.image_reader = image_reader
         self._ui_view = None
         self.show_config_ui_trigger.connect(self._actualShowConfigUI)
-        self.default_offset = 30
-        self.default_slopeHeight = 25
+        self.default_offset = 85
+        self.default_slopeHeight = 10
         self._aspect = 1
         self._offset = self.default_offset
         self._slopeHeight = self.default_slopeHeight
@@ -95,9 +95,9 @@ class VectorReaderUI(QObject):
         self._disable_size_callbacks = False
         self._ui_view.findChild(QObject, 'Peak_Height').setProperty('text', str(self.peak_height))
         #TODO：被屏蔽的待做的功能 单选框
-        #self._ui_view.findChild(QObject, 'closeTopButtonFace').setProperty('checked', self.closeTopButtonFace)
+        self._ui_view.findChild(QObject, 'closeTopButtonFace').setProperty('checked', self.closeTopButtonFace)
         #self._ui_view.findChild(QObject, 'reversePathToration').setProperty('checked', self.reversePathToration)
-        self._ui_view.findChild(QObject, 'splitWord').setProperty('checked', self.splitWord)
+        #self._ui_view.findChild(QObject, 'splitWord').setProperty('checked', self.splitWord)
 
     
     def _createConfigUI(self):

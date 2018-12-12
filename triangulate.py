@@ -15,6 +15,25 @@ def scale_polygon(path,offset):
             i[1] -= offset
     return path
 
+"""
+nums:circle
+r:radius
+points:baseboard data(numpy.array)
+data_list:list for circle center point[[1,2],[2,3]]
+"""
+def set_circle(nums,radius,points,data_list):
+    x_list=[]
+    y_list=[]
+    r_list=[]
+    for i in points:
+        x_list.append(i[0])
+        y_list.append(i[1])
+    x, y = numpy.meshgrid(numpy.array(x_list), numpy.array(y_list))
+    for i in data_list:
+        r = numpy.sqrt((x - i[0]) ** 2 + (y - i[1]) ** 2)
+        r_list.append(r)
+    outside = r > radius
+    return (x[outside], y[outside])
 
 def area_of_polygon(x, y):
     """Calculates the signed area of an arbitrary polygon given its verticies
