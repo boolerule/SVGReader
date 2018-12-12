@@ -1,5 +1,6 @@
 # -*- coding: cp936 -*-
 import math
+from UM.Math.Vector import Vector #网格生成器所需的助手类。
 import pyclipper
 class Polygon(object):
     def __init__(self,ponits=[]):

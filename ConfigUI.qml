@@ -73,52 +73,52 @@ UM.Dialog
             }
         }
 */
-//        UM.TooltipArea {
-//            Layout.fillWidth:true
-//            height: childrenRect.height
-//            text: catalog.i18nc("@info:tooltip","The offset from edge.")
-//            Row {
-//                width: parent.width
-//
-//                Label {
-//                    text: catalog.i18nc("@action:label","Slope offse (mm)")
-//                    width: 150
-//                    anchors.verticalCenter: parent.verticalCenter
-//                }
-//
-//                TextField {
-//                    id: offset
-//                    objectName: "Offset"
-//                    focus: true
-//                    validator: DoubleValidator {notation: DoubleValidator.StandardNotation; bottom: 1; top: 500;}
-//                    width: 180
-//                    onTextChanged: { manager.onOffsetChanged(text) }
-//                }
-//            }
-//        }
-//
-//        UM.TooltipArea {
-//            Layout.fillWidth:true
-//            height: childrenRect.height
-//            text: catalog.i18nc("@info:tooltip","Slope height (mm)")
-//            Row {
-//                width: parent.width
-//
-//                Label {
-//                    text: catalog.i18nc("@action:label","Slope height (mm)")
-//                    width: 150
-//                    anchors.verticalCenter: parent.verticalCenter
-//                }
-//                TextField {
-//                    id: slopHeight
-//                    objectName: "SlopHeight"
-//                    focus: true
-//                    validator: DoubleValidator {notation: DoubleValidator.StandardNotation; bottom: 1; top: 500;}
-//                    width: 180
-//                    onTextChanged: { manager.onSlopHeightChanged(text) }
-//                }
-//            }
-//        }
+        UM.TooltipArea {
+            Layout.fillWidth:true
+            height: childrenRect.height
+            text: catalog.i18nc("@info:tooltip","The offset from edge.")
+            Row {
+                width: parent.width
+
+                Label {
+                    text: catalog.i18nc("@action:label","Slope offse (mm)")
+                    width: 150
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                TextField {
+                    id: offset
+                    objectName: "Offset"
+                    focus: true
+                    validator: DoubleValidator {notation: DoubleValidator.StandardNotation; bottom: 1; top: 500;}
+                    width: 180
+                    onTextChanged: { manager.onOffsetChanged(text) }
+                }
+            }
+        }
+
+        UM.TooltipArea {
+            Layout.fillWidth:true
+            height: childrenRect.height
+            text: catalog.i18nc("@info:tooltip","Slope height (mm)")
+            Row {
+                width: parent.width
+
+                Label {
+                    text: catalog.i18nc("@action:label","Slope height (mm)")
+                    width: 150
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                TextField {
+                    id: slopHeight
+                    objectName: "SlopHeight"
+                    focus: true
+                    validator: DoubleValidator {notation: DoubleValidator.StandardNotation; bottom: 1; top: 500;}
+                    width: 180
+                    onTextChanged: { manager.onSlopHeightChanged(text) }
+                }
+            }
+        }
 //TODO：暂时屏蔽还没做好的功能
 //        UM.TooltipArea {
 //            Layout.fillWidth:true
@@ -165,27 +165,27 @@ UM.Dialog
 //            }
 //        }
 //
-//        UM.TooltipArea {
-//            Layout.fillWidth:true
-//            height: childrenRect.height
-//            text: catalog.i18nc("@info:tooltip","Usually only SVG format files can be split normally")
-//            Row {
-//                width: parent.width
-//
-//                CheckBox {
-//                      id: splitWord
-//                      objectName: "splitWord"
-//                      checked: true
-//                      onClicked: {
-//                          manager.onsplitWordChanged(checked)
-//
-//                      }
-//                      text: catalog.i18nc("@label", "Split all the characters into a single model")
-//
-//                      style: UM.Theme.styles.checkbox
-//                  }
-//            }
-//        }
+        UM.TooltipArea {
+            Layout.fillWidth:true
+            height: childrenRect.height
+            text: catalog.i18nc("@info:tooltip","Usually only SVG format files can be split normally")
+            Row {
+                width: parent.width
+
+                CheckBox {
+                      id: splitWord
+                      objectName: "splitWord"
+                      checked: true
+                      onClicked: {
+                          manager.onsplitWordChanged(checked)
+
+                      }
+                      text: catalog.i18nc("@label", "Split all the characters into a single model")
+
+                      style: UM.Theme.styles.checkbox
+                  }
+            }
+        }
 /*
         UM.TooltipArea {
             Layout.fillWidth:true
