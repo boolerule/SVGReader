@@ -211,16 +211,29 @@ class SVGFileReader(MeshReader):
             mesh = MeshBuilder()
         else:
              scene_node = []
+        self.Show(self._paths, "_paths", 2)
         areaTop = 0
         areaBottom = 0
         pathDetectNotEqual = False #路径检测不相等
         #TODO:#创建一个转换矩阵，从3mf世界空间转换为我们的。
         #第一步:翻转y轴和z轴。
         transformation_matrix = Matrix()
-        transformation_matrix._data[1, 1] = 0
-        transformation_matrix._data[1, 2] = 1
-        transformation_matrix._data[2, 1] = 1
-        transformation_matrix._data[2, 2] = 0
+        print("Matrix:",transformation_matrix)
+
+        range_s = 0
+        #i
+        transformation_matrix._data[1, 1] = math.sin(math.radians(range_s))
+        transformation_matrix._data[1, 2] = math.cos(math.radians(range_s))
+        #j
+        transformation_matrix._data[2, 1] = math.sin(math.radians(range_s+90))
+        transformation_matrix._data[2, 2] = math.cos(math.radians(range_s+90))
+        """
+        [[1. 0. 0. 0.]
+         [0. 1. 0. 0.]
+         [0. 0. 1. 0.]
+         [0. 0. 0. 1.]]
+        """
+
         #TODO:WALL
         for poins in self._paths:
             if splitWord:
@@ -250,10 +263,19 @@ class SVGFileReader(MeshReader):
             斜边c=b/cosA
             另一直角边a=b*tanA"""
         if offset != 0 and slopeHeight >0:
-            angle =  offset*(math.pi/180)
+            #angle =  offset*(math.pi/180)
             #实际偏移
-            offset_set = slopeHeight * math.cos(angle)
+            offset_set = slopeHeight / math.tan(math.radians(offset))
+            _matrix = Matrix()
+            print("Matrix:", _matrix)
 
+            range_s = offset
+            # i
+            _matrix._data[1, 1] = math.sin(math.radians(range_s))
+            _matrix._data[1, 2] = math.cos(math.radians(range_s))
+            # j
+            _matrix._data[2, 1] = math.sin(math.radians(range_s + 90))
+            _matrix._data[2, 2] = math.cos(math.radians(range_s + 90))
 
             """它可以用来判断点在直线的某侧。进而可以解决点是否在三角形内，两个矩形是否重叠等问题。
               向量的叉积的模表示这两个向量围成的平行四边形的面积。   
@@ -299,16 +321,6 @@ class SVGFileReader(MeshReader):
             if self.poly_count >= 2:
                 for index in  range(0,len(self._paths)):#全部等比例放大
                     scale_Paths.append(pyclipper.scale_to_clipper(self._paths[index], offset_set))
-                    # temp = polygon.polygonCollision(np.array(self._paths[index]),np.array(self._paths[index+1]))
-                    # print("Temp:",temp)
-                    # # if not isinstance(temp , bool):
-                    # #     self.Show(self._paths, "solution-" + str(temp), 2)
-                    # if temp:#如果有嵌套
-                    #     area0 = abs(pyclipper.Area(self._paths[index]))  # TODO:面积
-                    #     area1 = abs(pyclipper.Area(self._paths[index+1]))
-                    #
-                    # if not temp:
-                    #     scale_Paths.append(pyclipper.scale_to_clipper(self._paths[index], offset))
             else:
                 scale_Paths = pyclipper.scale_to_clipper(self._paths, offset)
             #self.Show(scale_Paths,"scale_Paths",2)
