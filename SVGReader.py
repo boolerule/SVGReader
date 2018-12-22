@@ -21,15 +21,21 @@ from .import polygon
 from .triangulate import *
 #import delaunay as DT
 #from .Point import * #为了点计算
+from . import Centerline
 import pyclipper #为了点链表的计算 交叉并集等
+from scipy.spatial import Voronoi,Delaunay
+from shapely.geometry import LineString
+from shapely.geometry import MultiLineString
 i18n_catalog = i18nCatalog('cura')
 import matplotlib.pyplot as plt  #TODO:用作测试的 后期得删掉
 import matplotlib.tri as tri
+from mpl_toolkits.mplot3d import Axes3D
 import math
 import numpy as np
 import time
 
-
+_subdivision = 0.12 #细分问题
+EPSILON = 0.000001
 class SVGFileReader(MeshReader):
 
     def __init__(self):
@@ -69,7 +75,7 @@ class SVGFileReader(MeshReader):
                 x.append(point_s[0])
                 y.append(point_s[1])
 
-        plt.plot(x, y, 'r')
+        plt.plot(x, y, 'r--')
         plt.xlabel('x')
         plt.ylabel('y')
         plt.axis('equal')
@@ -119,6 +125,29 @@ class SVGFileReader(MeshReader):
         if not self._paths:
             Logger.log('e', "Conn't load paths.")
             return MeshReader.PreReadResult.failed
+        # minx = 0#int(min(self._paths[0])[0])
+        # miny = 0#int(min(self._paths[0])[1])
+        # tri = Delaunay(self._paths[0])
+        # p = tri.points
+        # c= tri.simplices
+        # self.Show(c,"SB",2)
+        # vor = Voronoi(tri)
+        # vertex = vor.vertices
+        # lst_lines = []
+        # for j, ridge in enumerate(vor.ridge_vertices):
+        #     if -1 not in ridge:
+        #         line = LineString([
+        #             (vertex[ridge[0]][0] + minx, vertex[ridge[0]][1] + miny),
+        #             (vertex[ridge[1]][0] + minx, vertex[ridge[1]][1] + miny)])
+        #
+        #         if len(line.coords[0]) > 1:
+        #             lst_lines.append(np.asarray(line))
+
+        #return MultiLineString(lst_lines)
+        # polygon = LineString(self._paths[0]).buffer(0.05)
+        # centerline = Centerline.Centerline(polygon);
+        # path = centerline.create_centerline();
+        #self.Show( path,"haha",2)
         #TODO：我打算通过算交集来算出他们是否相交这是不合理的，暂时用着
         # if self.poly_count >= 2:
         #     for index in  range(1,len(self._paths)):
@@ -266,8 +295,105 @@ class SVGFileReader(MeshReader):
             #angle =  offset*(math.pi/180)
             #实际偏移
             offset_set = slopeHeight / math.tan(math.radians(offset))
+            #TODO：当前可以被细分到多小
+            offset_count = offset_set/_subdivision
+            curr_height = peak_height - slopeHeight
+            paths = []
+            for p in self._paths:
+                paths += p
+
+            line_path = LineString(paths)
+            polygon = line_path.buffer(0.001)
+            path = list(np.asarray(polygon.interiors[0]))
+            for p in range(len(path)):
+                path[p] = np.append(path[p],curr_height)
+            Vector_polygon = []
+            Vector_polygon.append(path)
+
+            for index_ in range(1, int(offset_count)+1):
+                polygon1 = line_path.buffer(index_*_subdivision)
+                curr_height = curr_height + _subdivision
+                if len(polygon1.interiors) < 1:
+                    continue
+                path1 = list(np.asarray(polygon1.interiors[0]))
+                for p in range(len(path1)):
+                    path1[p] = np.append(path1[p], curr_height)
+                Vector_polygon.append(path1)
+            tmap_vertices = []
+            for temp_poly in Vector_polygon:
+                tmap_vertices.extend(temp_poly)
+
+            num_verts = len(tmap_vertices)
+            num_faces = num_verts//3
+            self.reserveFaceAndVertexCount(num_faces,num_verts)
+            indices = [ i for i in range(len(tmap_vertices))]
+            self.index_base = 0
+            for p in path:
+                self.addVertex(p[0],p[1],10)
+            self.addFace(indices,False)
+
+                #self.Show(path1,"path"+str(index_),1)
+                #aaa = path#Polygon_subdivision(path, _subdivision)
+                #bbb = path1# Polygon_subdivision(path1, _subdivision)
+                # for ii in range(len(bbb) - 1):
+                #     p0 = bbb[ii]
+                #     p1 = bbb[ii + 1]
+                #     p2 = aaa[ii + 1]
+                #     # p_tri.append([p0, p1, p2])
+                #     p3 = aaa[ii + 1]
+                #     p4 = aaa[ii]
+                #     p5 = bbb[ii]
+                #     a = Vector(x=p0[0], y=p0[1], z=curr_height + _subdivision).multiply(transformation_matrix)
+                #     b = Vector(x=p1[0], y=p1[1], z=curr_height + _subdivision).multiply(transformation_matrix)
+                #     c = Vector(p2[0], p2[1], curr_height).multiply(transformation_matrix)
+                #     # build_list.append(poins[indx],poins[indx])
+                #     mesh.addFace(a, b, c)
+                #     # mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
+                #     # 下一个面
+                #     d = Vector(x=p4[0], y=p4[1], z=curr_height).multiply(
+                #         transformation_matrix)
+                #     mesh.addFace(c, d, a)
+               # polygon = polygon1
+               # path = path1
             _matrix = Matrix()
             print("Matrix:", _matrix)
+            #TODO:吧所有多边形依次相加因为我打算排序
+            self.Show(Vector_polygon, "Vector_polygon", 2)
+            tmap_vertices = []
+            for temp_poly in Vector_polygon:
+                tmap_vertices.extend(temp_poly)
+            max_x = max(tmap_vertices, key=lambda x: x[0])
+            max_y = max(tmap_vertices, key=lambda x: x[1])
+            max_z = max(tmap_vertices, key=lambda x: x[2])
+            min_x = min(tmap_vertices, key=lambda x: x[0])
+            min_y = min(tmap_vertices, key=lambda x: x[1])
+            min_z = min(tmap_vertices, key=lambda x: x[2])
+
+            xs = [x[0] for x in tmap_vertices]
+            ys = [x[1] for x in tmap_vertices]
+            zs = [x[2] for x in tmap_vertices]
+
+            # 创建 3D 图形对象
+            fig = plt.figure()
+            ax = Axes3D(fig)
+            # 绘制线型图
+            ax.plot(xs, ys, zs)
+            # 显示图
+            plt.show()
+            #直角坐标系中，任意一点(x，y)到原点的距离d=√(x²+y²)
+            tmap_vertices.sort(key=lambda dist:math.sqrt(dist[0]*dist[0] + dist[1]*dist[1]))#以 点到原点的距离为判断依据（不考虑z轴）
+
+
+
+
+
+            #p_tri = []
+
+                #mesh.addFaceByPoints(c.x, c.y, c.z, d.x, d.y, d.z, a.x, a.y, a.z)
+
+
+
+
 
             range_s = offset
             # i
@@ -314,53 +440,54 @@ class SVGFileReader(MeshReader):
                     v1 = Vector(x=tt[1][0], y=tt[1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
                     v2 = Vector(x=tt[2][0], y=tt[2][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
                     mesh.addFace(v0,v1,v2)
+
             #
             # self.Show(ppp,"qqqq",1)
                 #mesh.addConvexPolygonExtrusion(poins,1,10)
-            scale_Paths = []
-            if self.poly_count >= 2:
-                for index in  range(0,len(self._paths)):#全部等比例放大
-                    scale_Paths.append(pyclipper.scale_to_clipper(self._paths[index], offset_set))
-            else:
-                scale_Paths = pyclipper.scale_to_clipper(self._paths, offset)
-            #self.Show(scale_Paths,"scale_Paths",2)
-            #path_s = self._paths
-            #bbb = scale_polygon(self._paths[0], offset_set)
-            #self.Show(bbb, "bbb", 1)
-            #aaa = [bbb]
-            #TODO:我需要把中心点归类
-            for path_index in range(len(scale_Paths)):
-                a_center = centerOfMass(scale_Paths[path_index])
-                p_center = centerOfMass(self._paths[path_index])
-                X_offset = a_center[0] - p_center[0]
-                Y_offset = a_center[1] - p_center[1]
-                print("SB:",a_center,p_center)
-               # index = 0
-                for index in range(len(scale_Paths[path_index])):
-                    scale_Paths[path_index][index][0] -=  X_offset
-                    scale_Paths[path_index][index][1] -=  Y_offset
+            scale_Paths = self._paths
+            # if self.poly_count >= 2:
+            #     for index in  range(0,len(self._paths)):#全部等比例放大
+            #         scale_Paths.append(pyclipper.scale_to_clipper(self._paths[index], offset_set))
+            # else:
+            #     scale_Paths = pyclipper.scale_to_clipper(self._paths, offset)
+            # #self.Show(scale_Paths,"scale_Paths",2)
+            # #path_s = self._paths
+            # #bbb = scale_polygon(self._paths[0], offset_set)
+            # #self.Show(bbb, "bbb", 1)
+            # #aaa = [bbb]
+            # #TODO:我需要把中心点归类
+            # for path_index in range(len(scale_Paths)):
+            #     a_center = centerOfMass(scale_Paths[path_index])
+            #     p_center = centerOfMass(self._paths[path_index])
+            #     X_offset = a_center[0] - p_center[0]
+            #     Y_offset = a_center[1] - p_center[1]
+            #     print("SB:",a_center,p_center)
+            #    # index = 0
+            #     for index in range(len(scale_Paths[path_index])):
+            #         scale_Paths[path_index][index][0] -=  X_offset
+            #         scale_Paths[path_index][index][1] -=  Y_offset
                 #self.Show(scale_Paths[path_index], "scale_Paths[path_index]", 1)
 
 
             #TODO:偏移点
-            for _index in range(len(self._paths)):
-                indx = 0
-                while indx < len(self._paths[_index]) - 1:
-                    # print("Ver:",poins[indx])
-                    a = Vector(x=self._paths[_index][indx][0], y=self._paths[_index][indx][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-                    b = Vector(x=scale_Paths[_index][indx][0], y=scale_Paths[_index][indx][1], z=peak_height ).multiply(transformation_matrix)
-                    c = Vector(self._paths[_index][indx + 1][0], self._paths[_index][indx + 1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-                    # build_list.append(poins[indx],poins[indx])
-                    # mesh.addFace(a,b,c)
-                    mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
-                    # 下一个面
-                    a1 = Vector(x=scale_Paths[_index][indx][0], y=scale_Paths[_index][indx][1], z=peak_height).multiply(transformation_matrix)
-                    b1 = Vector(x=scale_Paths[_index][indx + 1][0], y=scale_Paths[_index][indx + 1][1], z=peak_height).multiply(
-                        transformation_matrix)
-                    c1 = Vector(self._paths[_index][indx + 1][0], self._paths[_index][indx + 1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-                    # mesh.addFace(c, b1, b)
-                    mesh.addFaceByPoints(a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, c1.x, c1.y, c1.z)
-                    indx += 1
+            # for _index in range(len(self._paths)):
+            #     indx = 0
+            #     while indx < len(self._paths[_index]) - 1:
+            #         # print("Ver:",poins[indx])
+            #         a = Vector(x=self._paths[_index][indx][0], y=self._paths[_index][indx][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
+            #         b = Vector(x=scale_Paths[_index][indx][0], y=scale_Paths[_index][indx][1], z=peak_height ).multiply(_matrix)
+            #         c = Vector(self._paths[_index][indx + 1][0], self._paths[_index][indx + 1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
+            #         # build_list.append(poins[indx],poins[indx])
+            #         # mesh.addFace(a,b,c)
+            #         mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
+            #         # 下一个面
+            #         a1 = Vector(x=scale_Paths[_index][indx][0], y=scale_Paths[_index][indx][1], z=peak_height).multiply(transformation_matrix)
+            #         b1 = Vector(x=scale_Paths[_index][indx + 1][0], y=scale_Paths[_index][indx + 1][1], z=peak_height).multiply(
+            #             _matrix)
+            #         c1 = Vector(self._paths[_index][indx + 1][0], self._paths[_index][indx + 1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
+            #         # mesh.addFace(c, b1, b)
+            #         mesh.addFaceByPoints(a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, c1.x, c1.y, c1.z)
+            #         indx += 1
             #TODO:计算面积
             for i in range(len(self._paths)):
                 areaTop += abs(pyclipper.Area(self._paths[i]))#TODO:面积
@@ -527,3 +654,141 @@ class SVGFileReader(MeshReader):
             message.hide()
 
         return (None, )
+
+
+
+
+
+    # 任意多边形三角剖分。
+    # 不假定凸性，也不检查文件中的“凸”标志。
+    # 采用“切耳”算法工作:
+    # - 找到一个外部顶点，它的角度最小，相邻三角形内没有顶点
+    # - 去掉那个顶点的三角形
+    # - 重复,直到完成
+    # 顶点坐标应该已经设置好了
+    def addFace(self, indices, ccw):
+        # 将索引解析为坐标，以便更快地进行数学运算
+        face = [Vector(data=self.verts[0:3, i]) for i in indices]
+
+        # 需要一个平面的法线这样我们就能知道哪些顶点构成内角
+        normal = findOuterNormal(face)
+
+        if not normal:  # 可能找不到外边，非平面多边形?
+            return
+
+        # 找到内角最小且内无点的顶点，将其截断，重复直至完成
+        n = len(face)
+        vi = [i for i in range(n)]  # 我们将用它来从表面踢顶点
+        while n > 3:
+            max_cos = EPSILON  # 我们不需要检查角度
+            i_min = 0  # max cos对应的是最小角
+            for i in range(n):
+                inext = (i + 1) % n
+                iprev = (i + n - 1) % n
+                v = face[vi[i]]
+                next = face[vi[inext]] - v
+                prev = face[vi[iprev]] - v
+                nextXprev = next.cross(prev)
+                if nextXprev.dot(normal) > EPSILON:  # 如果是内角
+                    cos = next.dot(prev) / (next.length() * prev.length())
+                    if cos > max_cos:
+                        # 检查三角形中是否有顶点
+                        no_points_inside = True
+                        for j in range(n):
+                            if j != i and j != iprev and j != inext:
+                                vx = face[vi[j]] - v
+                                if pointInsideTriangle(vx, next, prev, nextXprev):
+                                    no_points_inside = False
+                                    break
+
+                        if no_points_inside:
+                            max_cos = cos
+                            i_min = i
+
+            self.addTriFlip(indices[vi[(i_min + n - 1) % n]], indices[vi[i_min]], indices[vi[(i_min + 1) % n]], ccw)
+            vi.pop(i_min)
+            n -= 1
+        self.addTriFlip(indices[vi[0]], indices[vi[1]], indices[vi[2]], ccw)
+
+    # Indices are 0-based for this shape, but they won't be zero-based in the merged mesh
+    #这个形状的索引是基于0的，但是在合并后的网格中它们不是基于0的
+    def addTri(self, a, b, c):
+        if self.num_faces == 106:
+            print("ds")
+        self.faces[self.num_faces, 0] =  a
+        self.faces[self.num_faces, 1] =  b
+        self.faces[self.num_faces, 2] =  c
+        self.num_faces += 1
+
+    def addTriFlip(self, a, b, c, ccw):
+        if ccw:
+            self.addTri(a, b, c)
+        else:
+            self.addTri(b, a, c)
+    def reserveFaceAndVertexCount(self, num_faces, num_verts):
+        # 与Cura MeshBuilder不同，我们使用存储为列的4个向量来进行更简单的转换
+        self.verts = numpy.zeros((4, num_verts), dtype=numpy.float32)
+        self.verts[3,:] = numpy.ones((num_verts), dtype=numpy.float32)
+        self.num_verts = 0
+        self.reserveFaceCount(num_faces)
+    def reserveFaceCount(self, num_faces):
+        self.faces = numpy.zeros((num_faces, 3), dtype=numpy.int32)
+        self.num_faces = 0
+    def addVertex(self, x, y, z):
+        if self.num_verts == 314:
+            print("sd")
+        self.verts[0, self.num_verts] = x
+        self.verts[1, self.num_verts] = y
+        self.verts[2, self.num_verts] = z
+        self.num_verts += 1
+
+# Given a face as a sequence of vectors, returns a normal to the polygon place that forms a right triple
+# with a vector along the polygon sequence and a vector backwards
+# 正常多边形是向量序列，多边形序列和向后向量
+# 发现外法向量
+def findOuterNormal(face):
+    n = len(face)
+    for i in range(n):
+        for j in range(i + 1, n):
+            edge = face[j] - face[i]
+            if edge.length() > EPSILON:
+                edge = edge.normalized()
+                prev_rejection = Vector()
+                is_outer = True
+                for k in range(n):
+                    if k != i and k != j:
+                        pt = face[k] - face[i]
+                        pte = pt.dot(edge)
+                        rejection = pt - edge * pte
+                        if rejection.dot(prev_rejection) < -EPSILON:  # 边缘两边的点——不是外侧的点
+                            is_outer = False
+                            break
+                        elif rejection.length() > prev_rejection.length():  # 选择一个更大的拒绝数字稳定性
+                            prev_rejection = rejection
+
+                if is_outer:  # 找到一个外边缘，prev_rejection是面内的拒绝。生成一个正常。
+                    return edge.cross(prev_rejection)
+
+    return False
+
+# 给定两个*共线*向量a和b，返回使b到a的系数。
+# 没有错误处理
+# 为了稳定性，取最大坐标之间的比值会更好……
+# 比率
+def ratio(a, b):
+    if b.x > EPSILON or b.x < -EPSILON:
+        return a.x / b.x
+    elif b.y > EPSILON or b.y < -EPSILON:
+        return a.y / b.y
+    else:
+        return a.z / b.z
+
+# 点在三角形
+def pointInsideTriangle(vx, next, prev, nextXprev):
+    vxXprev = vx.cross(prev)
+    r = ratio(vxXprev, nextXprev)
+    if r < 0:
+        return False
+    vxXnext = vx.cross(next);
+    s = -ratio(vxXnext, nextXprev)
+    return s > 0 and (s + r) < 1

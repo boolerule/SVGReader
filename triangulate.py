@@ -1,7 +1,74 @@
 import math
 import numpy
 import pyclipper
+from shapely.geometry.polygon import LineString
+from shapely.geometry import Point
 import itertools as IT
+
+#TODO:多边形细分化
+def Polygon_subdivision( path, subdivision):
+    path_subdivision = []
+    index = 1
+    a = path[0][0]
+    b = path[0][1]
+    path_subdivision.append([a, b])
+    while index < len(path):
+        c = path[index][0]
+        d = path[index][1]
+        distance = Point(a, b).distance(Point(c, d))
+        # TODO：如果距离大于这个的就得被细分
+        if distance > subdivision:
+            # 检查可以被细分成几个
+            subdivision_count = int(distance / subdivision)
+            x_sum = c - a
+            if a == c:#由于x轴相等，
+                y_sum = d - b
+                y_subdivision = y_sum / subdivision_count
+                for inddx in range(1, subdivision_count):
+                    x = a#(a + x_subdivision * inddx)
+                    # y = (x * (d - b) - a * d + c * b) / (c + a)
+                    y = b+y_subdivision*inddx#((x - a) * (d - b)) / (c - a) + b
+                    path_subdivision.append([x, y])
+            x_subdivision = x_sum / subdivision_count
+            #print("a:", x_subdivision)
+            x = 0
+            y = 0
+            # x(d - b) - y(c + a) = a*d - c*b
+            # (x*(d-b) - a*d + c*b)/c+a = y
+            if subdivision_count <= 1:
+                subdivision_count = 2
+            #TODO:Y轴相等时
+            if b == d:
+                for inddx in range(1, subdivision_count):
+                    x = (a + x_subdivision * inddx)
+                    # y = (x * (d - b) - a * d + c * b) / (c + a)
+                    y = b#+y_subdivision*inddx
+                    path_subdivision.append([x, y])
+                    subdivision_count = 1#TODO:这是为了让下面这个循环无法运行
+
+            for inddx in range(1, subdivision_count):
+                x = (a + x_subdivision * inddx)
+                #y = (x * (d - b) - a * d + c * b) / (c + a)
+                y = ((x - a) * (d - b)) / (c - a) + b
+                path_subdivision.append([x, y])
+               # print("x:%f,y:%f" % (x, y))
+            path_subdivision.append([c, d])
+            a = c
+            b = d
+        elif distance < subdivision:
+            path_subdivision.append([c, d])
+            a = c
+            b = d
+            #continue  # 下一个点继续
+        else:
+            path_subdivision.append([c, d])
+            a = c
+            b = d
+        index += 1
+        #print("Point:%f,%d" % (i, index))
+    return path_subdivision
+
+
 def scale_polygon(path,offset):
     center = centroid_of_polygon(path)
     for i in path:
