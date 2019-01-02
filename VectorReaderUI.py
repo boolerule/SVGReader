@@ -23,8 +23,8 @@ class VectorReaderUI(QObject):
         self.image_reader = image_reader
         self._ui_view = None
         self.show_config_ui_trigger.connect(self._actualShowConfigUI)
-        self.default_offset = 85
-        self.default_slopeHeight = 10
+        self.default_offset = 50
+        self.default_slopeHeight = 5
         self._aspect = 1
         self._offset = self.default_offset
         self._slopeHeight = self.default_slopeHeight

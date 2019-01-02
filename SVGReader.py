@@ -15,6 +15,7 @@ from UM.Message import Message
 from UM.Application import Application
 from UM.i18n import i18nCatalog
 import UM.Math.Color as Color
+from cura.Vector_polygon import SBSBSBS
 
 import svg
 from .import polygon
@@ -23,6 +24,8 @@ from .triangulate import *
 #from .Point import * #为了点计算
 from . import Centerline
 import pyclipper #为了点链表的计算 交叉并集等
+from matplotlib.tri import triangulation
+from scipy.spatial import ConvexHull
 from scipy.spatial import Voronoi,Delaunay
 from shapely.geometry import LineString
 from shapely.geometry import MultiLineString
@@ -30,11 +33,12 @@ i18n_catalog = i18nCatalog('cura')
 import matplotlib.pyplot as plt  #TODO:用作测试的 后期得删掉
 import matplotlib.tri as tri
 from mpl_toolkits.mplot3d import Axes3D
+from p3t import CDT,Point3
 import math
 import numpy as np
 import time
 
-_subdivision = 0.12 #细分问题
+_subdivision = 0.5 #细分问题
 EPSILON = 0.000001
 class SVGFileReader(MeshReader):
 
@@ -79,7 +83,7 @@ class SVGFileReader(MeshReader):
         plt.xlabel('x')
         plt.ylabel('y')
         plt.axis('equal')
-        plt.show()
+        #plt.show()
         #plt.close()
 
     def preRead(self, file_name, *args, **kwargs):
@@ -125,71 +129,6 @@ class SVGFileReader(MeshReader):
         if not self._paths:
             Logger.log('e', "Conn't load paths.")
             return MeshReader.PreReadResult.failed
-        # minx = 0#int(min(self._paths[0])[0])
-        # miny = 0#int(min(self._paths[0])[1])
-        # tri = Delaunay(self._paths[0])
-        # p = tri.points
-        # c= tri.simplices
-        # self.Show(c,"SB",2)
-        # vor = Voronoi(tri)
-        # vertex = vor.vertices
-        # lst_lines = []
-        # for j, ridge in enumerate(vor.ridge_vertices):
-        #     if -1 not in ridge:
-        #         line = LineString([
-        #             (vertex[ridge[0]][0] + minx, vertex[ridge[0]][1] + miny),
-        #             (vertex[ridge[1]][0] + minx, vertex[ridge[1]][1] + miny)])
-        #
-        #         if len(line.coords[0]) > 1:
-        #             lst_lines.append(np.asarray(line))
-
-        #return MultiLineString(lst_lines)
-        # polygon = LineString(self._paths[0]).buffer(0.05)
-        # centerline = Centerline.Centerline(polygon);
-        # path = centerline.create_centerline();
-        #self.Show( path,"haha",2)
-        #TODO：我打算通过算交集来算出他们是否相交这是不合理的，暂时用着
-        # if self.poly_count >= 2:
-        #     for index in  range(1,len(self._paths)):
-        #         temp = polygon.polygonCollision(np.array(self._paths[index - 1]),np.array(self._paths[index]))
-        #         print("Temp:",temp)
-        #
-        #         if not isinstance(temp , bool):
-        #             self.Show(self._paths, "solution-" + str(temp), 2)
-        # else:
-        #     self._Split = False #多边形少于2
-        #整理一下数据
-        # count = len(self._Points)
-        #
-        # result = []
-        # Curr_orientation = True #顺时针为正 逆时针为负
-        # Prev_orientation = True
-        #TODO:当存在多个模型嵌套时，他们的方向要是相反的
-        # for index in range(len(self._Points)):
-        #     if len(self._Points[index]) == 2:
-        #         self._Points = self._Points[::-1] if IsClockwise(self._Points) else self._Points[:]
-        #         break
-        #     Curr_orientation = IsClockwise(self._Points[index])# 当前链表的方向
-        #     if Prev_orientation == Curr_orientation and index !=0:
-        #         Curr_orientation = not Prev_orientation
-        #
-        #     if Curr_orientation:
-        #         self._Points[index] = self._Points[index][::-1]
-        #     else:
-        #         self._Points[index] = self._Points[index][:]
-        #     Prev_orientation = Curr_orientation
-
-        # #链接多个模型
-        #
-        # for index in range(1,len(self._Points)):
-        #     endPoint1 = self._Points[index - 1][len(self._Points[index - 1]) - 1]
-        #     self._Points[index].insert(0, endPoint1)#开头加一个
-        #     self._Points[index].append(endPoint1)#后面加一个
-        # reult = self._Points[0]
-        # for index in range(1,len(self._Points)):
-        #     reult = np.concatenate([reult,self._Points[index]])
-        #
-        # self._Points = reult
         #Point_s = expand_polygon(reult)
        # self.Show(self._Points,"SB",1)
        #  i = 0
@@ -309,54 +248,63 @@ class SVGFileReader(MeshReader):
                 path[p] = np.append(path[p],curr_height)
             Vector_polygon = []
             Vector_polygon.append(path)
-
+            height_subdivsion = slopeHeight / offset_count
             for index_ in range(1, int(offset_count)+1):
                 polygon1 = line_path.buffer(index_*_subdivision)
-                curr_height = curr_height + _subdivision
+                curr_height = curr_height + height_subdivsion
                 if len(polygon1.interiors) < 1:
                     continue
                 path1 = list(np.asarray(polygon1.interiors[0]))
                 for p in range(len(path1)):
                     path1[p] = np.append(path1[p], curr_height)
                 Vector_polygon.append(path1)
+            polyLine = []
+            for p in Vector_polygon[0]:
+                polyLine.append(Point3(p[0],p[1],p[2]))
+            for index_ in range(1, len(Vector_polygon)):
+                #cdt = CDT(polyLine)
+                hole_polyLine = []
+                for p in Vector_polygon[index_]:
+                    hole_polyLine.append(Point3(p[0], p[1], 10))
+                # if hole_polyLine:
+                #     cdt.add_hole(hole_polyLine)
+                triangles = SBSBSBS(polyLine,hole_polyLine)
+                #triangles = cdt.triangulate()
+                # 创建 3D 图形对象
+                fig = plt.figure()
+                ax = Axes3D(fig)
+                for t in triangles:
+                    p0 = [t.a.x, t.a.y, t.a.z]
+                    p1 = [t.b.x, t.b.y, t.b.z]
+                    p2 = [t.c.x, t.c.y, t.c.z]
+                    x = [t.a.x, t.b.x, t.c.x, t.a.x]
+                    y = [t.a.y, t.b.y, t.c.y, t.a.y]
+                    z = [t.a.z, t.b.z, t.c.z, t.a.z]
+                    # 绘制线型图
+                    ax.plot(x, y, z)
+
+                # 显示图
+                plt.show()
+            cdt = CDT(polyLine)
+            for index_ in range(1, len(Vector_polygon)):
+                hole_polyLine = []
+                for p in Vector_polygon[index_]:
+                    hole_polyLine.append(Point3(p[0],p[1],p[2]))
+                Job.yieldThread()
+
+                Job.yieldThread()
+                if hole_polyLine:
+                    cdt.add_hole(hole_polyLine)
+                Job.yieldThread()
+                triangle = cdt.triangulate()
+                print("""SBSBBSBSBS""")
             tmap_vertices = []
             for temp_poly in Vector_polygon:
                 tmap_vertices.extend(temp_poly)
 
-            num_verts = len(tmap_vertices)
-            num_faces = num_verts//3
-            self.reserveFaceAndVertexCount(num_faces,num_verts)
-            indices = [ i for i in range(len(tmap_vertices))]
-            self.index_base = 0
-            for p in path:
-                self.addVertex(p[0],p[1],10)
-            self.addFace(indices,False)
-
-                #self.Show(path1,"path"+str(index_),1)
-                #aaa = path#Polygon_subdivision(path, _subdivision)
-                #bbb = path1# Polygon_subdivision(path1, _subdivision)
-                # for ii in range(len(bbb) - 1):
-                #     p0 = bbb[ii]
-                #     p1 = bbb[ii + 1]
-                #     p2 = aaa[ii + 1]
-                #     # p_tri.append([p0, p1, p2])
-                #     p3 = aaa[ii + 1]
-                #     p4 = aaa[ii]
-                #     p5 = bbb[ii]
-                #     a = Vector(x=p0[0], y=p0[1], z=curr_height + _subdivision).multiply(transformation_matrix)
-                #     b = Vector(x=p1[0], y=p1[1], z=curr_height + _subdivision).multiply(transformation_matrix)
-                #     c = Vector(p2[0], p2[1], curr_height).multiply(transformation_matrix)
-                #     # build_list.append(poins[indx],poins[indx])
-                #     mesh.addFace(a, b, c)
-                #     # mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
-                #     # 下一个面
-                #     d = Vector(x=p4[0], y=p4[1], z=curr_height).multiply(
-                #         transformation_matrix)
-                #     mesh.addFace(c, d, a)
-               # polygon = polygon1
-               # path = path1
             _matrix = Matrix()
             print("Matrix:", _matrix)
+
             #TODO:吧所有多边形依次相加因为我打算排序
             self.Show(Vector_polygon, "Vector_polygon", 2)
             tmap_vertices = []
@@ -372,29 +320,17 @@ class SVGFileReader(MeshReader):
             xs = [x[0] for x in tmap_vertices]
             ys = [x[1] for x in tmap_vertices]
             zs = [x[2] for x in tmap_vertices]
-
-            # 创建 3D 图形对象
-            fig = plt.figure()
-            ax = Axes3D(fig)
-            # 绘制线型图
-            ax.plot(xs, ys, zs)
-            # 显示图
-            plt.show()
-            #直角坐标系中，任意一点(x，y)到原点的距离d=√(x²+y²)
-            tmap_vertices.sort(key=lambda dist:math.sqrt(dist[0]*dist[0] + dist[1]*dist[1]))#以 点到原点的距离为判断依据（不考虑z轴）
-
-
-
-
-
-            #p_tri = []
-
-                #mesh.addFaceByPoints(c.x, c.y, c.z, d.x, d.y, d.z, a.x, a.y, a.z)
-
-
-
-
-
+            # num_faces = len(tmap_vertices) // 3
+            # num_verts = len(tmap_vertices)
+            # self.reserveFaceAndVertexCount(num_faces,num_verts)
+            # self.addFace(tmap_vertices,True)
+            # # # 创建 3D 图形对象
+            # fig = plt.figure()
+            # ax = Axes3D(fig)
+            # # 绘制线型图
+            # ax.plot(xs, ys, zs)
+            # # 显示图
+            # plt.show()
             range_s = offset
             # i
             _matrix._data[1, 1] = math.sin(math.radians(range_s))
@@ -441,176 +377,12 @@ class SVGFileReader(MeshReader):
                     v2 = Vector(x=tt[2][0], y=tt[2][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
                     mesh.addFace(v0,v1,v2)
 
-            #
-            # self.Show(ppp,"qqqq",1)
-                #mesh.addConvexPolygonExtrusion(poins,1,10)
-            scale_Paths = self._paths
-            # if self.poly_count >= 2:
-            #     for index in  range(0,len(self._paths)):#全部等比例放大
-            #         scale_Paths.append(pyclipper.scale_to_clipper(self._paths[index], offset_set))
-            # else:
-            #     scale_Paths = pyclipper.scale_to_clipper(self._paths, offset)
-            # #self.Show(scale_Paths,"scale_Paths",2)
-            # #path_s = self._paths
-            # #bbb = scale_polygon(self._paths[0], offset_set)
-            # #self.Show(bbb, "bbb", 1)
-            # #aaa = [bbb]
-            # #TODO:我需要把中心点归类
-            # for path_index in range(len(scale_Paths)):
-            #     a_center = centerOfMass(scale_Paths[path_index])
-            #     p_center = centerOfMass(self._paths[path_index])
-            #     X_offset = a_center[0] - p_center[0]
-            #     Y_offset = a_center[1] - p_center[1]
-            #     print("SB:",a_center,p_center)
-            #    # index = 0
-            #     for index in range(len(scale_Paths[path_index])):
-            #         scale_Paths[path_index][index][0] -=  X_offset
-            #         scale_Paths[path_index][index][1] -=  Y_offset
-                #self.Show(scale_Paths[path_index], "scale_Paths[path_index]", 1)
 
 
-            #TODO:偏移点
-            # for _index in range(len(self._paths)):
-            #     indx = 0
-            #     while indx < len(self._paths[_index]) - 1:
-            #         # print("Ver:",poins[indx])
-            #         a = Vector(x=self._paths[_index][indx][0], y=self._paths[_index][indx][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #         b = Vector(x=scale_Paths[_index][indx][0], y=scale_Paths[_index][indx][1], z=peak_height ).multiply(_matrix)
-            #         c = Vector(self._paths[_index][indx + 1][0], self._paths[_index][indx + 1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #         # build_list.append(poins[indx],poins[indx])
-            #         # mesh.addFace(a,b,c)
-            #         mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
-            #         # 下一个面
-            #         a1 = Vector(x=scale_Paths[_index][indx][0], y=scale_Paths[_index][indx][1], z=peak_height).multiply(transformation_matrix)
-            #         b1 = Vector(x=scale_Paths[_index][indx + 1][0], y=scale_Paths[_index][indx + 1][1], z=peak_height).multiply(
-            #             _matrix)
-            #         c1 = Vector(self._paths[_index][indx + 1][0], self._paths[_index][indx + 1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #         # mesh.addFace(c, b1, b)
-            #         mesh.addFaceByPoints(a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, c1.x, c1.y, c1.z)
-            #         indx += 1
             #TODO:计算面积
             for i in range(len(self._paths)):
                 areaTop += abs(pyclipper.Area(self._paths[i]))#TODO:面积
-                areaBottom += abs(pyclipper.Area(scale_Paths[i]))
-            #self.Show(scale_Paths[_index], "aaa", 2)
-            # pcOffset = pyclipper.PyclipperOffset()
-            # pcOffset.AddPaths(self._paths, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDLINE)
-            # result = pcOffset.Execute(offset)
-            # i = 0
-            #
-            # for point_s in result:
-            #     index = len(point_s)
-            #     name = "./result_"+ str(offset)+ "倍"+str(i)+".txt"
-            #     f = open(name, 'w')
-            #     f.write(str(index) + "\n")
-            #     # for point_s in self._paths:
-            #     for point in point_s:
-            #         f.write(str(point) + "\n")
-            #     f.close()
-            #     i += 1
-            #
-            # self.Show(result[0], "result[0]", 1)
-            # self.Show(result, "result", 2)
-            # for path in self._paths:
-            #     pcOffset = pyclipper.PyclipperOffset()
-            #     pcOffset.AddPath(path, pyclipper.JT_SQUARE, pyclipper.ET_CLOSEDLINE)
-            #     result = pcOffset.Execute(offset)
-            #     #由于一些模型路径的关系我们只能用第一个链表
-            #     if len(result) > 1:
-            #         m = Message(i18n_catalog.i18nc(
-            #             '@warning:status',
-            #             '模型偏移后的数据出现异常，这可能导致偏移部分的精度有一定误差！'),
-            #             lifetime=0)
-            #         m.addAction("MoreInfo", name=i18n_catalog.i18nc("@action:button", "More info"), icon=None,
-            #                    description=i18n_catalog.i18nc("@action:tooltip",
-            #                                              "有问题请找twosilly."),
-            #                    button_style=Message.ActionButtonStyle.LINK)
-            #         m._filename = file_name
-            #         m.actionTriggered.connect(self._onMessageActionTriggered)
-            #         m.show()
-            #     self.Show(path, "path", 1)
-            #     result[0].append(result[0][0])
-            #     self.Show(result[0],"result[0]",1)
-            #     i = 0
-            #     for point_s in result:
-            #         index = len(point_s)
-            #         name = "./result" + str(i) + ".txt"
-            #         f = open(name, 'w')
-            #         f.write(str(index) + "\n")
-            #         # for point_s in self._paths:
-            #         for point in point_s:
-            #             f.write(str(point) + "\n")
-            #         f.close()
-            #         i += 1
-            #
-            #     #temp_path = path + result[0]
-            #
-            #     areaTop = abs(pyclipper.Area(path))#TODO:面积
-            #     areaBottom = abs(pyclipper.Area(result[0]))
-            #     #result[0] = pyclipper.CleanPolygon(result[0])#删除不必要的点
-            #     #path = pyclipper.CleanPolygon(path)  # 删除不必要的点
-            #     #TODO：把放大的模型以此打开看看
-            #     # for pp in result:
-            #     #     pp.append(pp[0])
-            #     #     self.Show(pp, "result",1)
-            #
-            #     pc = pyclipper.Pyclipper()
-            #     pc.AddPath(path, pyclipper.PT_CLIP, True)
-            #     pc.AddPath(result[0], pyclipper.PT_SUBJECT, True)
-            #     solution = pc.Execute(pyclipper.CT_DIFFERENCE, pyclipper.PFT_EVENODD, pyclipper.PFT_NEGATIVE)#交集
-            #     self.Show(solution, "solution", 2)
-            #
-            #
-            #     index = 0
-            #     path_result = []
-            #     for solut in solution:
-            #         path_result += solut
-            #     # res = result[0]
-            #     # res.append(res[0])
-            #     # path_result = res[::-1] if IsClockwise(res) else res[:]
-            #     # pp_path = path
-            #     # pp_path.append(res[len(res) - 1])#加一个未值
-            #     # pp_path.insert(0,res[len(res) - 1])
-            #     # path_result += pp_path[::-1] if IsClockwise(pp_path) else pp_path[:]
-            #
-            #
-            #     # 创建一个三角;Delaunay三角剖分法没有创建三角形。
-            #     tri = []
-            #     plist = path_result[::-1] if IsClockwise(path_result) else path_result[:]
-            #     while len(plist) >= 3:
-            #         a,b = GetEar(plist)
-            #         plist = numpy.delete(plist, b, axis=0)
-            #         if a == []:
-            #             break
-            #         tri.append(a)
-            #     ppp = []
-            #
-            #     for tt in tri:
-            #         V = []
-            #         for p in tt:
-            #             if p in np.array(path):
-            #                 V.append(Vector(x=p[0], y=p[1], z=peak_height - slopeHeight ).multiply(transformation_matrix))
-            #             elif p in np.array(result[0]):
-            #                 V.append(Vector(x=p[0], y=p[1], z=peak_height ).multiply(transformation_matrix))
-            #             else:
-            #                 V.append(Vector(x=p[0], y=p[1], z=peak_height - slopeHeight ).multiply(transformation_matrix))
-            #                 print("other:")
-            #                 #print("other:",V[2])
-            #             ppp.append(p)
-            #         mesh.addFace(V[0], V[1], V[2])
-            #         v0 = Vector(x=tt[0][0], y=tt[0][1], z=0).multiply(transformation_matrix)
-            #         v1 = Vector(x=tt[1][0], y=tt[1][1], z=0).multiply(transformation_matrix)
-            #         v2 = Vector(x=tt[2][0], y=tt[2][1], z=0).multiply(transformation_matrix)
-            #         mesh.addFace(v0, v1, v2)
-            #         v0 = Vector(x=tt[0][0], y=tt[0][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #         v1 = Vector(x=tt[1][0], y=tt[1][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #         v2 = Vector(x=tt[2][0], y=tt[2][1], z=peak_height - slopeHeight).multiply(transformation_matrix)
-            #         mesh.addFace(v0, v1, v2)
-            #     self.Show(ppp, "ppp", 1)
-
-
-
-
+                areaBottom += abs(pyclipper.Area(self._paths[i]))
         # TODO:Bottom
 
         #TODO:要记得高开
