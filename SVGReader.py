@@ -15,7 +15,7 @@ from UM.Message import Message
 from UM.Application import Application
 from UM.i18n import i18nCatalog
 import UM.Math.Color as Color
-from cura.Vector_polygon import SBSBSBS
+#from cura.Vector_polygon import SBSBSBS
 
 import svg
 from .import polygon
@@ -262,14 +262,15 @@ class SVGFileReader(MeshReader):
             for p in Vector_polygon[0]:
                 polyLine.append(Point3(p[0],p[1],p[2]))
             for index_ in range(1, len(Vector_polygon)):
-                #cdt = CDT(polyLine)
+                cdt = CDT(polyLine)
                 hole_polyLine = []
                 for p in Vector_polygon[index_]:
                     hole_polyLine.append(Point3(p[0], p[1], 10))
-                # if hole_polyLine:
-                #     cdt.add_hole(hole_polyLine)
-                triangles = SBSBSBS(polyLine,hole_polyLine)
-                #triangles = cdt.triangulate()
+                if hole_polyLine:
+                    cdt.add_hole(hole_polyLine)
+                #triangles = SBSBSBS(polyLine,hole_polyLine)
+                triangles = cdt.triangulate()
+                polyLine = hole_polyLine
                 # 创建 3D 图形对象
                 fig = plt.figure()
                 ax = Axes3D(fig)
