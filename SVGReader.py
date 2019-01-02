@@ -11,6 +11,8 @@ from UM.Job import Job
 from UM.Logger import Logger
 from PyQt5.QtCore import QUrl
 from .VectorReaderUI import VectorReaderUI
+from .CDTUI import CDTUI
+from .SVGjob import ProcessSVGJob
 from UM.Message import Message
 from UM.Application import Application
 from UM.i18n import i18nCatalog
@@ -38,6 +40,26 @@ import math
 import numpy as np
 import time
 
+def load_points(file_name):
+    infile = open(file_name, "r")
+    points = []
+    while infile:
+        line = infile.readline()
+        line = line.replace("[", "")
+        line = line.replace("]", "")
+        line = line.replace("\n", "")
+       # ss = list_to_string(line)
+        #ss = list(line)
+        s = line.split(',')
+        #print("SB:",s,len(s))
+        if len(s) <= 2:
+            break
+        try:
+            points.append([float(s[0]), float(s[1]), float(s[2])])
+        except ValueError :
+            print("ss")
+    return points
+
 _subdivision = 0.5 #细分问题
 EPSILON = 0.000001
 class SVGFileReader(MeshReader):
@@ -46,7 +68,9 @@ class SVGFileReader(MeshReader):
         super().__init__()
         self._supported_extensions = [".svg"] #抱歉，你还必须在这里指定它。
         self._ui = VectorReaderUI(self)
+        self._Cdt = CDTUI(self)
         self._paths = None
+        self._start_SvG_job = ProcessSVGJob(None,None)
         #self._Points = None
         self.poly_count = 0 #多边形个数 用了判断可不可以拆分--> 应该吧计算出来的东西放在一个结构里面 而不是直接这么用
 
@@ -152,6 +176,7 @@ class SVGFileReader(MeshReader):
         self._ui.waitForUIToClose()
         if self._ui.getCancelled():
             return MeshReader.PreReadResult.cancelled
+        #self._start_SvG_job.start()
         return MeshReader.PreReadResult.accepted
 
 
@@ -249,6 +274,24 @@ class SVGFileReader(MeshReader):
             Vector_polygon = []
             Vector_polygon.append(path)
             height_subdivsion = slopeHeight / offset_count
+                                    #
+                                    # self._Cdt.showConfigUI()
+                                    # self._Cdt.waitForUIToClose()
+                                    # if self._Cdt.getCancelled():
+                                    #     return MeshReader.PreReadResult.cancelled
+                                    #
+                                    # Vector_polygon_SBSBSBSB = load_points("./Vector_SBA1.txt")
+                                    # index = 3
+                                    # while index < len(Vector_polygon_SBSBSBSB):
+                                    #     v0 = Vector(x=Vector_polygon_SBSBSBSB[index - 3][0], y=Vector_polygon_SBSBSBSB[index - 3][1],
+                                    #                 z = Vector_polygon_SBSBSBSB[index - 3][2])#.multiply(transformation_matrix)
+                                    #     v1 = Vector(x=Vector_polygon_SBSBSBSB[index - 2][0], y=Vector_polygon_SBSBSBSB[index - 2][1],
+                                    #                 z=Vector_polygon_SBSBSBSB[index - 2][2])#.multiply(transformation_matrix)
+                                    #     v2 = Vector(x=Vector_polygon_SBSBSBSB[index - 1][0], y=Vector_polygon_SBSBSBSB[index - 1][1],
+                                    #                 z=Vector_polygon_SBSBSBSB[index - 1][2])#.multiply(transformation_matrix)
+                                    #     mesh.addFace(v0, v1, v2)
+                                    #     index += 3
+
             for index_ in range(1, int(offset_count)+1):
                 polygon1 = line_path.buffer(index_*_subdivision)
                 curr_height = curr_height + height_subdivsion
@@ -262,46 +305,50 @@ class SVGFileReader(MeshReader):
             for p in Vector_polygon[0]:
                 polyLine.append(Point3(p[0],p[1],p[2]))
             for index_ in range(1, len(Vector_polygon)):
-                cdt = CDT(polyLine)
+                self._start_SvG_job.setPolyLine(polyLine)
+
+                #cdt = CDT(polyLine)
                 hole_polyLine = []
                 for p in Vector_polygon[index_]:
                     hole_polyLine.append(Point3(p[0], p[1], 10))
-                if hole_polyLine:
-                    cdt.add_hole(hole_polyLine)
+                self._start_SvG_job.setHole_polyLine(hole_polyLine)
+                self._start_SvG_job.start()
+                triangles = self._start_SvG_job.getTriangles()
+                print ("sss",triangles,len(triangles))
                 #triangles = SBSBSBS(polyLine,hole_polyLine)
-                triangles = cdt.triangulate()
+                #triangles = cdt.triangulate()
                 polyLine = hole_polyLine
-                # 创建 3D 图形对象
-                fig = plt.figure()
-                ax = Axes3D(fig)
-                for t in triangles:
-                    p0 = [t.a.x, t.a.y, t.a.z]
-                    p1 = [t.b.x, t.b.y, t.b.z]
-                    p2 = [t.c.x, t.c.y, t.c.z]
-                    x = [t.a.x, t.b.x, t.c.x, t.a.x]
-                    y = [t.a.y, t.b.y, t.c.y, t.a.y]
-                    z = [t.a.z, t.b.z, t.c.z, t.a.z]
-                    # 绘制线型图
-                    ax.plot(x, y, z)
-
-                # 显示图
-                plt.show()
-            cdt = CDT(polyLine)
-            for index_ in range(1, len(Vector_polygon)):
-                hole_polyLine = []
-                for p in Vector_polygon[index_]:
-                    hole_polyLine.append(Point3(p[0],p[1],p[2]))
-                Job.yieldThread()
-
-                Job.yieldThread()
-                if hole_polyLine:
-                    cdt.add_hole(hole_polyLine)
-                Job.yieldThread()
-                triangle = cdt.triangulate()
-                print("""SBSBBSBSBS""")
-            tmap_vertices = []
-            for temp_poly in Vector_polygon:
-                tmap_vertices.extend(temp_poly)
+                # # 创建 3D 图形对象
+                # fig = plt.figure()
+                # ax = Axes3D(fig)
+                # for t in triangles:
+                #     p0 = [t.a.x, t.a.y, t.a.z]
+                #     p1 = [t.b.x, t.b.y, t.b.z]
+                #     p2 = [t.c.x, t.c.y, t.c.z]
+                #     x = [t.a.x, t.b.x, t.c.x, t.a.x]
+                #     y = [t.a.y, t.b.y, t.c.y, t.a.y]
+                #     z = [t.a.z, t.b.z, t.c.z, t.a.z]
+                #     # 绘制线型图
+                #     ax.plot(x, y, z)
+                #
+                # # 显示图
+                # plt.show()
+            # cdt = CDT(polyLine)
+            # for index_ in range(1, len(Vector_polygon)):
+            #     hole_polyLine = []
+            #     for p in Vector_polygon[index_]:
+            #         hole_polyLine.append(Point3(p[0],p[1],p[2]))
+            #     Job.yieldThread()
+            #
+            #     Job.yieldThread()
+            #     if hole_polyLine:
+            #         cdt.add_hole(hole_polyLine)
+            #     Job.yieldThread()
+            #     triangle = cdt.triangulate()
+            #     print("""SBSBBSBSBS""")
+            # tmap_vertices = []
+            # for temp_poly in Vector_polygon:
+            #     tmap_vertices.extend(temp_poly)
 
             _matrix = Matrix()
             print("Matrix:", _matrix)
