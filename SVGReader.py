@@ -27,15 +27,35 @@ from scipy.spatial import Voronoi,Delaunay
 from shapely.geometry import LineString
 from shapely.geometry import MultiLineString
 i18n_catalog = i18nCatalog('cura')
-import matplotlib.pyplot as plt  #TODO:用作测试的 后期得删掉
-import matplotlib.tri as tri
-from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt  #TODO:用作测试的 后期得删掉
+# import matplotlib.tri as tri
+# from mpl_toolkits.mplot3d import Axes3D
 import math
 import numpy as np
+# TODO: 等高线三角化最主要的模块
+#from p3t import CDT, Point3
+import sys, subprocess, os
 import time
 
-_subdivision = 0.12 #细分问题
-EPSILON = 0.000001
+_subdivision = 0.52 #细分问题
+EPSILON = 0.0001
+
+
+def run_command_notfixed(*kwargs):
+    cmd_path = os.path.abspath('.')  # 获取当前文件路径
+    print("cmd_path:", cmd_path)
+    parameters_str = ''
+    for i in kwargs:
+        parameters_str = parameters_str + " " + str(i)
+    cmd_path = cmd_path + "/Vector_compute.exe" + parameters_str
+    print(cmd_path)
+    # print(os.popen(cmd_path))
+    value = os.system(cmd_path)  # 执行命令
+    print(value)
+    if value == 0:
+        print("run ok")
+        # subprocess.Popen([cmd_path])
+#        sys.exit(0)
 class SVGFileReader(MeshReader):
 
     def __init__(self):
@@ -53,7 +73,19 @@ class SVGFileReader(MeshReader):
         x = []
         y = []
         index = 0
-        if arg > 1:
+        if arg > 2:
+            for point_s in path:
+                for point_ in point_s:
+                    for point in point_:
+                        if index == 0 or index == len(point_s) - 1:
+                            plt.annotate('Start', xy=(point[0], point[1]), xytext=(point[0]+3, point[1]+1.5),
+                                         arrowprops=dict(facecolor='black', shrink=0.05),
+                                         )
+                            #print("point:",point)
+                        index += 1
+                        x.append(point[0])
+                        y.append(point[1])
+        elif arg > 1:
             for point_s in path:
                 for point in point_s:
                     if index == 0 or index == len(point_s) - 1:
@@ -67,20 +99,24 @@ class SVGFileReader(MeshReader):
         else:
             for point_s in path:
                 if index == 0 or index == len(path) - 1:
-                    plt.annotate('Start', xy=(point_s[0], point_s[1]), xytext=(point_s[0] + 3, point_s[1] + 1.5),
+                    plt.annotate('Start', xy=(point_s.x, point_s.y), xytext=(point_s.x + 3, point_s.y + 1.5),
                                  arrowprops=dict(facecolor='black', shrink=0.05),
                                  )
                     print("point:", point_s)
                 index += 1
-                x.append(point_s[0])
-                y.append(point_s[1])
+                x.append(point_s.x)
+                y.append(point_s.y)
 
         plt.plot(x, y, 'r--')
         plt.xlabel('x')
         plt.ylabel('y')
         plt.axis('equal')
         plt.show()
-        #plt.close()
+        plt.close()
+
+
+    # subprocess.Popen(["C:/Python27/python.exe", "C:/GUI/TestGUI.py"])
+    # sys.exit(0)
 
     def preRead(self, file_name, *args, **kwargs):
         self._paths = None
@@ -192,22 +228,24 @@ class SVGFileReader(MeshReader):
         # self._Points = reult
         #Point_s = expand_polygon(reult)
        # self.Show(self._Points,"SB",1)
-       #  i = 0
-       #  name = "./output" + svg_file.title() + ".txt"
-       #  f = open(name, 'w')
-       #  for point_s in self._paths:
-       #      index = len(point_s)
-       #      f.write(str(index)+"\n")
-       #      #for point_s in self._paths:
-       #      for point in point_s:
-       #          f.write(str(point)+"\n")
-       #
-       #      i += 1
-       #  f.close()
-
         start = time.clock()
+        i = 0
+        name = "./outputTemp" + ".dat"
+        f = open(name, 'w')
+        for point_s in self._paths:
+            #index = len(point_s)
+            #f.write(str(index)+"\n")
+            #for point_s in self._paths:
+            for point in point_s:
+                p = np.array(point)*1000
+                f.write(str(int(p[0])/1000.0)+" "+str(int(p[1])/1000.0)+"\n")
 
-        print(("Poly-Triangulierung: %.2fs" % (time.clock() - start)))
+            i += 1
+        f.close()
+
+
+
+        print(("Poly-Load: %.2fs" % (time.clock() - start)))
 
         self._ui.showConfigUI()
         self._ui.waitForUIToClose()
@@ -235,6 +273,77 @@ class SVGFileReader(MeshReader):
     def _generateSceneNode(self, file_name, offset, peak_height, slopeHeight,
                            closeTopButtonFace, reversePathToration, splitWord):
         Job.yieldThread()
+        scene_node = SceneNode()
+        mesh = MeshBuilder()
+        # TODO:#创建一个转换矩阵，从3mf世界空间转换为我们的。
+        # 第一步:翻转y轴和z轴。
+        transformation_matrix = Matrix()
+        print("Matrix:", transformation_matrix)
+
+        range_s = 0
+        # i
+        transformation_matrix._data[1, 1] = math.sin(math.radians(range_s))
+        transformation_matrix._data[1, 2] = math.cos(math.radians(range_s))
+        # j
+        transformation_matrix._data[2, 1] = math.sin(math.radians(range_s + 90))
+        transformation_matrix._data[2, 2] = math.cos(math.radians(range_s + 90))
+        """
+        [[1. 0. 0. 0.]
+         [0. 1. 0. 0.]
+         [0. 0. 1. 0.]
+         [0. 0. 0. 1.]]
+        """
+        run_command_notfixed(int(offset), int(peak_height), int(slopeHeight),
+                           int(closeTopButtonFace), int(reversePathToration), int(splitWord))
+
+        # 我需要写一个读取函数
+        # TODO:加载文件中的点
+        def load_points(file_name):
+            if not file_name:
+                return None
+            infile = open(file_name, "r")
+            points = []
+            while infile:
+                line = infile.readline()
+                line = line.replace("[", "")
+                line = line.replace("]", "")
+                line = line.replace(",", "")
+                line = line.replace("\n", "")
+                s = line.split()
+                if len(s) <= 1:
+                    break
+                index = 3
+                while index < len(s) + 3:
+                    p0 = [float(s[index - 3])/1000, float(s[index - 2])/1000, float(s[index - 1])]
+                    points.append(p0)
+                    index += 3
+            return points
+
+        Vector_polygon = load_points("./outputVector.dat")
+        indx = 0
+        while indx < len(Vector_polygon):
+            # print("Ver:",poins[indx])
+            a = Vector(x=Vector_polygon[indx][0], y=Vector_polygon[indx][1], z=Vector_polygon[indx][2]).multiply(transformation_matrix)
+            b = Vector(x=Vector_polygon[indx+1][0], y=Vector_polygon[indx+1][1], z=Vector_polygon[indx+1][2]).multiply(transformation_matrix)
+            c = Vector(Vector_polygon[indx + 2][0], Vector_polygon[indx + 2][1],z=Vector_polygon[indx+2][2]).multiply(transformation_matrix)
+            # build_list.append(poins[indx],poins[indx])
+            # mesh.addFace(a,b,c)
+            mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
+            # 下一个面
+            # b1 = Vector(x=poins[indx + 1][0], y=poins[indx + 1][1], z=peak_height - slopeHeight).multiply(
+            #     transformation_matrix)
+            # # mesh.addFace(c, b1, b)
+            # mesh.addFaceByPoints(c.x, c.y, c.z, b1.x, b1.y, b1.z, b.x, b.y, b.z)
+            indx += 3
+        mesh.calculateNormals()
+
+        # 将网格放到场景节点中。
+        # result_node = SceneNode()
+        scene_node.setMeshData(mesh.build())
+
+        # scene_node.setMirror(transformation_matrix)
+        scene_node.setName(file_name)  # Ty举例来说，网格起源的文件名是节点的好名字。
+        return scene_node
         if not splitWord:
             scene_node = SceneNode()
             mesh = MeshBuilder()
@@ -292,96 +401,122 @@ class SVGFileReader(MeshReader):
             斜边c=b/cosA
             另一直角边a=b*tanA"""
         if offset != 0 and slopeHeight >0:
+
+
             #angle =  offset*(math.pi/180)
             #实际偏移
             offset_set = slopeHeight / math.tan(math.radians(offset))
             #TODO：当前可以被细分到多小
-            offset_count = offset_set/_subdivision
+            offset_count = int(abs(offset_set/_subdivision))
             curr_height = peak_height - slopeHeight
-            paths = []
-            for p in self._paths:
-                paths += p
+            #TODO:为了精度问题吧所有多边形放大1000 倍。即放大取整。
+            # for idx in range(len(self._paths)):
+            #     self._paths[idx] = np.array(self._paths[idx]) *1000
+            # Vector_polygon = []
+            # pco = pyclipper.PyclipperOffset()
+            # for idx in range(len(self._paths)):
+            #     pco.AddPath(self._paths[idx], pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+            # for index in range(1,offset_count):
+            #     solution = pco.Execute(-_subdivision * 1000 * index)
+            #     Vector_polygon.append(solution)
+            temp = []
+            for idx in range(len(self._paths)):
+                temp += self._paths[idx]
+            temp = np.array(temp)
 
-            line_path = LineString(paths)
-            polygon = line_path.buffer(0.001)
-            path = list(np.asarray(polygon.interiors[0]))
-            for p in range(len(path)):
-                path[p] = np.append(path[p],curr_height)
-            Vector_polygon = []
-            Vector_polygon.append(path)
+                #self._paths[idx] = np.array(self._paths[idx]) *1000
+            # line_path = LineString(temp)
+            # polygon = line_path.buffer(0.001)
+            # Vector_polygon = []
+            # Vector_polygon.append(np.asarray(polygon.interiors[0]))
+            # for index in range(1,offset_count):
+            #     polygon1 = line_path.buffer(_subdivision*index)
+            #     #solution = pco.Execute(-_subdivision * 1000 * index)
+            #     Vector_polygon.append(np.asarray(polygon1.interiors[0]))
+           #self.Show(Vector_polygon, "Vector_polygon", 1)
+            # #TODO:保证多边形是闭合的
+            # for index in range(1, len(Vector_polygon)):
+            #     Vector_polygon[index] = Vector_polygon[index]
+            #TODO:为了三角化
+            polyline = []
+            end_point = None
+            temp_poly = []
+            #for i in range(1,len(Vector_polygon[0])):
+                #Vector_polygon[0][i].append(Vector_polygon[0][i-1][0])
 
-            for index_ in range(1, int(offset_count)+1):
-                polygon1 = line_path.buffer(index_*_subdivision)
-                curr_height = curr_height + _subdivision
-                if len(polygon1.interiors) < 1:
-                    continue
-                path1 = list(np.asarray(polygon1.interiors[0]))
-                for p in range(len(path1)):
-                    path1[p] = np.append(path1[p], curr_height)
-                Vector_polygon.append(path1)
-            tmap_vertices = []
-            for temp_poly in Vector_polygon:
-                tmap_vertices.extend(temp_poly)
 
-            num_verts = len(tmap_vertices)
-            num_faces = num_verts//3
-            self.reserveFaceAndVertexCount(num_faces,num_verts)
-            indices = [ i for i in range(len(tmap_vertices))]
-            self.index_base = 0
-            for p in path:
-                self.addVertex(p[0],p[1],10)
-            self.addFace(indices,False)
+            #for point_s in Vector_polygon[0]:
+          #      temp_poly += point_s;
+          #  temp_poly = np.array(temp_poly)
+                #polyline.append(polyline[len(polyline) - 1])
+          #   for p in Vector_polygon[0]:
+          #
+          #       #print(p)
+          #       polyline.append(Point3(p[0], p[1], curr_height))
+          #
+          #
+          # #  polyline.append(end_point)
+          #   hole_polyline = []
+          #
+          #   height_subdivision = slopeHeight / offset_count
+          #   self.Show(polyline, "polyline[" + str(0) + "]:", 1)
 
-                #self.Show(path1,"path"+str(index_),1)
-                #aaa = path#Polygon_subdivision(path, _subdivision)
-                #bbb = path1# Polygon_subdivision(path1, _subdivision)
-                # for ii in range(len(bbb) - 1):
-                #     p0 = bbb[ii]
-                #     p1 = bbb[ii + 1]
-                #     p2 = aaa[ii + 1]
-                #     # p_tri.append([p0, p1, p2])
-                #     p3 = aaa[ii + 1]
-                #     p4 = aaa[ii]
-                #     p5 = bbb[ii]
-                #     a = Vector(x=p0[0], y=p0[1], z=curr_height + _subdivision).multiply(transformation_matrix)
-                #     b = Vector(x=p1[0], y=p1[1], z=curr_height + _subdivision).multiply(transformation_matrix)
-                #     c = Vector(p2[0], p2[1], curr_height).multiply(transformation_matrix)
-                #     # build_list.append(poins[indx],poins[indx])
-                #     mesh.addFace(a, b, c)
-                #     # mesh.addFaceByPoints(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
-                #     # 下一个面
-                #     d = Vector(x=p4[0], y=p4[1], z=curr_height).multiply(
-                #         transformation_matrix)
-                #     mesh.addFace(c, d, a)
-               # polygon = polygon1
-               # path = path1
+
+                #Job.yieldThread()
+                # 创建 3D 图形对象
+            fig = plt.figure()
+            ax = Axes3D(fig)
+            x = []
+            y = []
+            z = []
+            for tri in Vector_polygon:
+                x.append(tri[0])
+                y.append(tri[1])
+                z.append(tri[2])
+                #for t in tri:
+                    # p0 = [t.a.x, t.a.y, t.a.z]
+                    # p1 = [t.b.x, t.b.y, t.b.z]
+                    # p2 = [t.c.x, t.c.y, t.c.z]
+                    # x += [t.a.x, t.b.x, t.c.x,t.a.x]
+                    # y += [t.a.y, t.b.y, t.c.y,t.a.y]
+                    # z += [t.a.z, t.b.z, t.c.z,t.a.z]
+                    # 绘制线型图
+            ax.plot(x, y, z)
+
+            # 显示图
+            plt.show()
+
+
+
+
+
             _matrix = Matrix()
             print("Matrix:", _matrix)
             #TODO:吧所有多边形依次相加因为我打算排序
-            self.Show(Vector_polygon, "Vector_polygon", 2)
+            #self.Show(Vector_polygon, "Vector_polygon", 2)
             tmap_vertices = []
             for temp_poly in Vector_polygon:
                 tmap_vertices.extend(temp_poly)
-            max_x = max(tmap_vertices, key=lambda x: x[0])
-            max_y = max(tmap_vertices, key=lambda x: x[1])
-            max_z = max(tmap_vertices, key=lambda x: x[2])
-            min_x = min(tmap_vertices, key=lambda x: x[0])
-            min_y = min(tmap_vertices, key=lambda x: x[1])
-            min_z = min(tmap_vertices, key=lambda x: x[2])
-
-            xs = [x[0] for x in tmap_vertices]
-            ys = [x[1] for x in tmap_vertices]
-            zs = [x[2] for x in tmap_vertices]
-
-            # 创建 3D 图形对象
-            fig = plt.figure()
-            ax = Axes3D(fig)
-            # 绘制线型图
-            ax.plot(xs, ys, zs)
-            # 显示图
-            plt.show()
-            #直角坐标系中，任意一点(x，y)到原点的距离d=√(x²+y²)
-            tmap_vertices.sort(key=lambda dist:math.sqrt(dist[0]*dist[0] + dist[1]*dist[1]))#以 点到原点的距离为判断依据（不考虑z轴）
+            # max_x = max(tmap_vertices, key=lambda x: x[0])
+            # max_y = max(tmap_vertices, key=lambda x: x[1])
+            # max_z = max(tmap_vertices, key=lambda x: x[2])
+            # min_x = min(tmap_vertices, key=lambda x: x[0])
+            # min_y = min(tmap_vertices, key=lambda x: x[1])
+            # min_z = min(tmap_vertices, key=lambda x: x[2])
+            #
+            # xs = [x[0] for x in tmap_vertices]
+            # ys = [x[1] for x in tmap_vertices]
+            # zs = [x[2] for x in tmap_vertices]
+            #
+            # # 创建 3D 图形对象
+            # fig = plt.figure()
+            # ax = Axes3D(fig)
+            # # 绘制线型图
+            # ax.plot(xs, ys, zs)
+            # # 显示图
+            # plt.show()
+            # #直角坐标系中，任意一点(x，y)到原点的距离d=√(x²+y²)
+            # tmap_vertices.sort(key=lambda dist:math.sqrt(dist[0]*dist[0] + dist[1]*dist[1]))#以 点到原点的距离为判断依据（不考虑z轴）
 
 
 
