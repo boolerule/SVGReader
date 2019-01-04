@@ -154,23 +154,43 @@ class SVGFileReader(MeshReader):
             Logger.log('e', "Conn't load paths.")
             return MeshReader.PreReadResult.failed
         #Point_s = expand_polygon(reult)
-       # self.Show(self._Points,"SB",1)
-       #  i = 0
-       #  name = "./output" + svg_file.title() + ".txt"
-       #  f = open(name, 'w')
-       #  for point_s in self._paths:
-       #      index = len(point_s)
-       #      f.write(str(index)+"\n")
-       #      #for point_s in self._paths:
-       #      for point in point_s:
-       #          f.write(str(point)+"\n")
-       #
-       #      i += 1
-       #  f.close()
+        paths = []
+        for p in self._paths:
+            paths += p
+        paths_line = LineString(paths)
+        # 基地层
+        polygon = paths_line.buffer(0.001)
+        path = list(np.asarray(polygon.interiors[0]))
 
+        pco = pyclipper.PyclipperOffset()
+        for points in self._paths:
+            points = np.array(points)*1000
+            pco.AddPath(points, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+        #pco.AddPath(p, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+        solution = pco.Execute(-1)
+        self.Show(solution, "solution", 2)
         start = time.clock()
+        name = "./output"+"Temp" + ".dat"
+        f = open(name, 'w')
+        for point in self._paths:
+            point = np.array(point) * 1000
+            for point_s in point:
+                f.write(str(int(point_s[0])/1000)+" "+ str(int(point_s[1])/1000) + "\n")
+        f.close()
 
-        print(("Poly-Triangulierung: %.2fs" % (time.clock() - start)))
+        # i = 0
+        # name = "./output"+"Temp" + ".dat"
+        # f = open(name, 'w')
+        # for point_s in self._paths:
+        #     #index = len(point_s)
+        #     #f.write(str(index)+"\n")
+        #     #for point_s in self._paths:
+        #     for point in point_s:
+        #         f.write(str(point)+"\n")
+        #     i += 1
+        # f.close()
+
+        print(("Poly-Load: %.2fs" % (time.clock() - start)))
 
         self._ui.showConfigUI()
         self._ui.waitForUIToClose()
@@ -312,9 +332,9 @@ class SVGFileReader(MeshReader):
                 for p in Vector_polygon[index_]:
                     hole_polyLine.append(Point3(p[0], p[1], 10))
                 self._start_SvG_job.setHole_polyLine(hole_polyLine)
-                self._start_SvG_job.start()
+                #self._start_SvG_job.start()
                 triangles = self._start_SvG_job.getTriangles()
-                print ("sss",triangles,len(triangles))
+                print ("sss",triangles)
                 #triangles = SBSBSBS(polyLine,hole_polyLine)
                 #triangles = cdt.triangulate()
                 polyLine = hole_polyLine
@@ -476,139 +496,3 @@ class SVGFileReader(MeshReader):
         return (None, )
 
 
-
-
-
-    # 任意多边形三角剖分。
-    # 不假定凸性，也不检查文件中的“凸”标志。
-    # 采用“切耳”算法工作:
-    # - 找到一个外部顶点，它的角度最小，相邻三角形内没有顶点
-    # - 去掉那个顶点的三角形
-    # - 重复,直到完成
-    # 顶点坐标应该已经设置好了
-    def addFace(self, indices, ccw):
-        # 将索引解析为坐标，以便更快地进行数学运算
-        face = [Vector(data=self.verts[0:3, i]) for i in indices]
-
-        # 需要一个平面的法线这样我们就能知道哪些顶点构成内角
-        normal = findOuterNormal(face)
-
-        if not normal:  # 可能找不到外边，非平面多边形?
-            return
-
-        # 找到内角最小且内无点的顶点，将其截断，重复直至完成
-        n = len(face)
-        vi = [i for i in range(n)]  # 我们将用它来从表面踢顶点
-        while n > 3:
-            max_cos = EPSILON  # 我们不需要检查角度
-            i_min = 0  # max cos对应的是最小角
-            for i in range(n):
-                inext = (i + 1) % n
-                iprev = (i + n - 1) % n
-                v = face[vi[i]]
-                next = face[vi[inext]] - v
-                prev = face[vi[iprev]] - v
-                nextXprev = next.cross(prev)
-                if nextXprev.dot(normal) > EPSILON:  # 如果是内角
-                    cos = next.dot(prev) / (next.length() * prev.length())
-                    if cos > max_cos:
-                        # 检查三角形中是否有顶点
-                        no_points_inside = True
-                        for j in range(n):
-                            if j != i and j != iprev and j != inext:
-                                vx = face[vi[j]] - v
-                                if pointInsideTriangle(vx, next, prev, nextXprev):
-                                    no_points_inside = False
-                                    break
-
-                        if no_points_inside:
-                            max_cos = cos
-                            i_min = i
-
-            self.addTriFlip(indices[vi[(i_min + n - 1) % n]], indices[vi[i_min]], indices[vi[(i_min + 1) % n]], ccw)
-            vi.pop(i_min)
-            n -= 1
-        self.addTriFlip(indices[vi[0]], indices[vi[1]], indices[vi[2]], ccw)
-
-    # Indices are 0-based for this shape, but they won't be zero-based in the merged mesh
-    #这个形状的索引是基于0的，但是在合并后的网格中它们不是基于0的
-    def addTri(self, a, b, c):
-        if self.num_faces == 106:
-            print("ds")
-        self.faces[self.num_faces, 0] =  a
-        self.faces[self.num_faces, 1] =  b
-        self.faces[self.num_faces, 2] =  c
-        self.num_faces += 1
-
-    def addTriFlip(self, a, b, c, ccw):
-        if ccw:
-            self.addTri(a, b, c)
-        else:
-            self.addTri(b, a, c)
-    def reserveFaceAndVertexCount(self, num_faces, num_verts):
-        # 与Cura MeshBuilder不同，我们使用存储为列的4个向量来进行更简单的转换
-        self.verts = numpy.zeros((4, num_verts), dtype=numpy.float32)
-        self.verts[3,:] = numpy.ones((num_verts), dtype=numpy.float32)
-        self.num_verts = 0
-        self.reserveFaceCount(num_faces)
-    def reserveFaceCount(self, num_faces):
-        self.faces = numpy.zeros((num_faces, 3), dtype=numpy.int32)
-        self.num_faces = 0
-    def addVertex(self, x, y, z):
-        if self.num_verts == 314:
-            print("sd")
-        self.verts[0, self.num_verts] = x
-        self.verts[1, self.num_verts] = y
-        self.verts[2, self.num_verts] = z
-        self.num_verts += 1
-
-# Given a face as a sequence of vectors, returns a normal to the polygon place that forms a right triple
-# with a vector along the polygon sequence and a vector backwards
-# 正常多边形是向量序列，多边形序列和向后向量
-# 发现外法向量
-def findOuterNormal(face):
-    n = len(face)
-    for i in range(n):
-        for j in range(i + 1, n):
-            edge = face[j] - face[i]
-            if edge.length() > EPSILON:
-                edge = edge.normalized()
-                prev_rejection = Vector()
-                is_outer = True
-                for k in range(n):
-                    if k != i and k != j:
-                        pt = face[k] - face[i]
-                        pte = pt.dot(edge)
-                        rejection = pt - edge * pte
-                        if rejection.dot(prev_rejection) < -EPSILON:  # 边缘两边的点——不是外侧的点
-                            is_outer = False
-                            break
-                        elif rejection.length() > prev_rejection.length():  # 选择一个更大的拒绝数字稳定性
-                            prev_rejection = rejection
-
-                if is_outer:  # 找到一个外边缘，prev_rejection是面内的拒绝。生成一个正常。
-                    return edge.cross(prev_rejection)
-
-    return False
-
-# 给定两个*共线*向量a和b，返回使b到a的系数。
-# 没有错误处理
-# 为了稳定性，取最大坐标之间的比值会更好……
-# 比率
-def ratio(a, b):
-    if b.x > EPSILON or b.x < -EPSILON:
-        return a.x / b.x
-    elif b.y > EPSILON or b.y < -EPSILON:
-        return a.y / b.y
-    else:
-        return a.z / b.z
-
-# 点在三角形
-def pointInsideTriangle(vx, next, prev, nextXprev):
-    vxXprev = vx.cross(prev)
-    r = ratio(vxXprev, nextXprev)
-    if r < 0:
-        return False
-    vxXnext = vx.cross(next);
-    s = -ratio(vxXnext, nextXprev)
-    return s > 0 and (s + r) < 1
