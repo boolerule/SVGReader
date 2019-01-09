@@ -17,10 +17,11 @@ from UM.Message import Message
 from UM.Application import Application
 from UM.i18n import i18nCatalog
 import UM.Math.Color as Color
-#from cura.Vector_polygon import SBSBSBS
-
+from cura.Vector_polygon import SBSBSBS
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 import svg
-from .import polygon
+
 from .triangulate import *
 #import delaunay as DT
 #from .Point import * #为了点计算
@@ -189,6 +190,25 @@ class SVGFileReader(MeshReader):
             i += 1
         f.close()
 
+        triangles = Vector(self._paths[0],self._paths[1])
+        print ("SB:",triangles)
+        Vector_SB = []
+        for t in triangles:
+            p0 = [t.a.x, t.a.y, t.a.z]
+            p1 = [t.b.x, t.b.y, t.b.z]
+            p2 = [t.c.x, t.c.y, t.c.z]
+            Vector_SB.append(p0)
+            Vector_SB.append(p1)
+            Vector_SB.append(p2)
+        # 创建 3D 图形对象
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        x = [x[0] for x in Vector_SB]
+        y = [x[1] for x in Vector_SB]
+        z = [x[2] for x in Vector_SB]
+        #绘制线型图
+        ax.plot(x, y, z)
+        plt.show()
 
         print(("Poly-Load: %.2fs" % (time.clock() - start)))
 
