@@ -11,32 +11,24 @@ from UM.Job import Job
 from UM.Logger import Logger
 from PyQt5.QtCore import QUrl
 from .VectorReaderUI import VectorReaderUI
-from .CDTUI import CDTUI
-from .SVGjob import ProcessSVGJob
+from cura.Vector_polygon import Vector_compute_Polygon
+
 from UM.Message import Message
 from UM.Application import Application
 from UM.i18n import i18nCatalog
 import UM.Math.Color as Color
-from cura.Vector_polygon import SBSBSBS
-from mpl_toolkits.mplot3d import Axes3D
+
 import matplotlib.pyplot as plt
 import svg
 
-from .triangulate import *
-#import delaunay as DT
-#from .Point import * #为了点计算
-from . import Centerline
 import pyclipper #为了点链表的计算 交叉并集等
-from matplotlib.tri import triangulation
-from scipy.spatial import ConvexHull
-from scipy.spatial import Voronoi,Delaunay
-from shapely.geometry import LineString
+from shapely.geometry import LineString,Point
 from shapely.geometry import MultiLineString
 i18n_catalog = i18nCatalog('cura')
 
-# import matplotlib.pyplot as plt  #TODO:用作测试的 后期得删掉
-# import matplotlib.tri as tri
-# from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt  #TODO:用作测试的 后期得删掉
+import matplotlib.tri as tri
+from mpl_toolkits.mplot3d import Axes3D
 
 import math
 import numpy as np
@@ -72,9 +64,7 @@ class SVGFileReader(MeshReader):
         super().__init__()
         self._supported_extensions = [".svg"] #抱歉，你还必须在这里指定它。
         self._ui = VectorReaderUI(self)
-        self._Cdt = CDTUI(self)
         self._paths = None
-        self._start_SvG_job = ProcessSVGJob(None,None)
         #self._Points = None
         self.poly_count = 0 #多边形个数 用了判断可不可以拆分--> 应该吧计算出来的东西放在一个结构里面 而不是直接这么用
 
@@ -124,7 +114,7 @@ class SVGFileReader(MeshReader):
         plt.ylabel('y')
         plt.axis('equal')
 
-        #plt.show()
+        plt.show()
         #plt.close()
 
 
@@ -140,75 +130,46 @@ class SVGFileReader(MeshReader):
             print("bbox:",svg_file.bbox())
             svg_segments = svg_file.flatten()
             self._paths = []
-            #self._Points = []
-            #v = Vector
-            #Point_s = []
             def MM2Int(a):
                 return (a*1)
             #poly_count = 0 #多边形个数 用了判断可不可以拆分
+            segments_count = 0
+            svg_segments_count = 0
+            coord_count = 0
             for d in svg_segments:
+                svg_segments_Path = []
+                svg_segments_count += 1
                 if hasattr(d, 'segments'):
+                    segments_count += 1
+                    segments_Path = []
                     for l in d.segments(1):
+                        coord_count += 1
                         x, y = l[0].coord()
-                        print("move:(%f,%f)" % (x, y))
-                        #hull_poins1 = [Vector(x=x, y=y, z=0)]
-                        hull_poins1 = [[x,y]]
-                       # Point_s = [[MM2Int(x), MM2Int(y)]]
+                        coord_Path = [(x,y)]
+                        #coord_Path = []
                         self.poly_count += 1 #多边形个数 用了判断可不可以拆分
                         for pt in l[1:]:
                             x, y = pt.coord()
-                            #hull_poins1.append(Vector(x=x, y=y, z=0))
-                            hull_poins1.append([x,y])
-                            #Point_s.append([MM2Int(x), MM2Int(y)])
-                        hull_poins1.append(hull_poins1[0])
-                        self._paths.append(hull_poins1)
-                        #self._Points.append(Point_s)
-                    #self._Points.append(point_list)
+                            coord_Path.append((x,y))
+                        segments_Path.append(coord_Path)
+                    svg_segments_Path.append(segments_Path)
                 else:
                     Logger.log('e', "Unsupported SVG element")
+
                     #print("Unsupported SVG element")
+                self._paths.append(svg_segments_Path)
 
-
+        print ("svg_segments:",svg_segments_count)
+        print ("segments:", segments_count)
+        print ("coord:", coord_count)
         if not self._paths:
             Logger.log('e', "Conn't load paths.")
             return MeshReader.PreReadResult.failed
-        #Point_s = expand_polygon(reult)
 
-       # self.Show(self._Points,"SB",1)
         start = time.clock()
-        i = 0
-        name = "./outputTemp" + ".dat"
-        f = open(name, 'w')
-        for point_s in self._paths:
-            #index = len(point_s)
-            #f.write(str(index)+"\n")
-            #for point_s in self._paths:
-            for point in point_s:
-                p = np.array(point)*1000
-                f.write(str(int(p[0])/1000.0)+" "+str(int(p[1])/1000.0)+"\n")
 
-            i += 1
-        f.close()
 
-        triangles = Vector(self._paths[0],self._paths[1])
-        print ("SB:",triangles)
-        Vector_SB = []
-        for t in triangles:
-            p0 = [t.a.x, t.a.y, t.a.z]
-            p1 = [t.b.x, t.b.y, t.b.z]
-            p2 = [t.c.x, t.c.y, t.c.z]
-            Vector_SB.append(p0)
-            Vector_SB.append(p1)
-            Vector_SB.append(p2)
-        # 创建 3D 图形对象
-        fig = plt.figure()
-        ax = Axes3D(fig)
-        x = [x[0] for x in Vector_SB]
-        y = [x[1] for x in Vector_SB]
-        z = [x[2] for x in Vector_SB]
-        #绘制线型图
-        ax.plot(x, y, z)
-        plt.show()
+
 
         print(("Poly-Load: %.2fs" % (time.clock() - start)))
 
@@ -259,33 +220,33 @@ class SVGFileReader(MeshReader):
          [0. 0. 1. 0.]
          [0. 0. 0. 1.]]
         """
-        run_command_notfixed(int(offset), int(peak_height), int(slopeHeight),
+        # run_command_notfixed(int(offset), int(peak_height), int(slopeHeight),
+        #                    int(closeTopButtonFace), int(reversePathToration), int(splitWord))
+        #
+
+
+        #Vector_polygon = load_points("./outputVector.dat")
+        triangles_list = Vector_compute_Polygon(self._paths,int(offset), int(peak_height), int(slopeHeight),
                            int(closeTopButtonFace), int(reversePathToration), int(splitWord))
-
-        # 我需要写一个读取函数
-        # TODO:加载文件中的点
-        def load_points(file_name):
-            if not file_name:
-                return None
-            infile = open(file_name, "r")
-            points = []
-            while infile:
-                line = infile.readline()
-                line = line.replace("[", "")
-                line = line.replace("]", "")
-                line = line.replace(",", "")
-                line = line.replace("\n", "")
-                s = line.split()
-                if len(s) <= 1:
-                    break
-                index = 3
-                while index < len(s) + 3:
-                    p0 = [float(s[index - 3])/1000, float(s[index - 2])/1000, float(s[index - 1])]
-                    points.append(p0)
-                    index += 3
-            return points
-
-        Vector_polygon = load_points("./outputVector.dat")
+        #print ("SB:",triangles)
+        Vector_polygon = []
+        for triangles in triangles_list:
+            for t in triangles:
+                p0 = [t.a.x, t.a.y, t.a.z]
+                p1 = [t.b.x, t.b.y, t.b.z]
+                p2 = [t.c.x, t.c.y, t.c.z]
+                Vector_polygon.append(p0)
+                Vector_polygon.append(p1)
+                Vector_polygon.append(p2)
+        # 创建 3D 图形对象
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        x = [x[0] for x in Vector_polygon]
+        y = [x[1] for x in Vector_polygon]
+        z = [x[2] for x in Vector_polygon]
+        #绘制线型图
+        ax.plot(x, y, z)
+        plt.show()
         indx = 0
         while indx < len(Vector_polygon):
             # print("Ver:",poins[indx])
