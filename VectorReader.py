@@ -3,9 +3,9 @@
 
 import numpy
 import math
-from PyQt5.QtGui import QImage, qRed, qGreen, qBlue
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QUrl
+from PyQt6.QtGui import QImage, qRed, qGreen, qBlue
+from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QUrl
 from UM.Mesh.MeshReader import MeshReader
 from UM.Mesh.MeshBuilder import MeshBuilder
 from UM.Scene.SceneNode import SceneNode

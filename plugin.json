@@ -1,8 +1,8 @@
 {
     "name": "SVG File Reader",
     "author": "twosilly",
-    "version": "1.0",
-    "api": 5,
+    "version": "1.0.0",
+    "api": 8,
     "description": "Example file reader to instruct people on how to create Uranium file readers.",
     "catalog": "uranium"
 }

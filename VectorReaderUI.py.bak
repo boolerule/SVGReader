@@ -3,8 +3,8 @@
 
 import os
 import threading
-from PyQt5.QtCore import Qt, QUrl, pyqtSignal, QObject
-from PyQt5.QtQml import QQmlComponent, QQmlContext
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QObject
+from PyQt6.QtQml import QQmlComponent, QQmlContext
 from UM.FlameProfiler import pyqtSlot
 from UM.Application import Application
 from UM.PluginRegistry import PluginRegistry
@@ -23,13 +23,13 @@ class VectorReaderUI(QObject):
         self.image_reader = image_reader
         self._ui_view = None
         self.show_config_ui_trigger.connect(self._actualShowConfigUI)
-        self.default_offset = 50
-        self.default_slopeHeight = 5
+        self.default_offset = 5
+        self.default_slopeHeight = 20
         self._aspect = 1
         self._offset = self.default_offset
         self._slopeHeight = self.default_slopeHeight
         self.base_height = 1
-        self.peak_height = 50
+        self.peak_height = 30
         self.smoothing = 1
         self.closeTopButtonFace = True
         self.reversePathToration = False
@@ -41,7 +41,6 @@ class VectorReaderUI(QObject):
         pkFile = os.path.join(os.path.join(Resources.getStoragePath(Resources.Resources), 'plugins'), 'VectorReaderUI.pk')
         self._pkDat = []
         if os.path.exists(pkFile):
-            
             try:
                 self._pkDat = pickle.load(open(pkFile, 'rb'))
                 if isinstance(self._pkDat, list) and len(self._pkDat) == 6:
@@ -52,7 +51,14 @@ class VectorReaderUI(QObject):
                     self.reversePathToration = self._pkDat[4]
                     self.splitWord = self._pkDat[5]
             except:
-                None
+                self._pkDat = [30,5,20,1,1,1]
+                pass
+        else:
+            # pkFile = os.path.join(os.path.join(Resources.getStoragePath(Resources.Resources), 'plugins'),'VectorReaderUI.pk')
+            # print('pkFile:', pkFile)
+            # pickle.dump(self._pkDat, open(pkFile, 'wb'))
+            self._pkDat = [30, 5, 20, 1, 1, 1]
+            print("不存在")
 
 
 
@@ -102,13 +108,10 @@ class VectorReaderUI(QObject):
     
     def _createConfigUI(self):
         if self._ui_view is None:
-            Logger.log('d', 'Creating ImageReader config UI')
-            path = QUrl.fromLocalFile(os.path.join(PluginRegistry.getInstance().getPluginPath('SVGReader'), 'ConfigUI.qml'))
-            component = QQmlComponent(Application.getInstance()._qml_engine, path)
-            self._ui_context = QQmlContext(Application.getInstance()._qml_engine.rootContext())
-            self._ui_context.setContextProperty('manager', self)
-            self._ui_view = component.create(self._ui_context)
-            self._ui_view.setFlags(self._ui_view.flags() & ~(Qt.WindowCloseButtonHint) & ~(Qt.WindowMinimizeButtonHint) & ~(Qt.WindowMaximizeButtonHint))
+            Logger.log("d", "Creating SVGReader config UI")
+            path = os.path.join(PluginRegistry.getInstance().getPluginPath("SVGReader"), "ConfigUI.qml")
+            self._ui_view = Application.getInstance().createQmlComponent(path, {"manager": self})
+            #self._ui_view.setFlags(self._ui_view.flags() & ~Qt.WindowType.WindowCloseButtonHint & ~Qt.WindowType.WindowMinimizeButtonHint & ~Qt.WindowType.WindowMaximizeButtonHint)
             self._disable_size_callbacks = False
 
     
@@ -116,16 +119,25 @@ class VectorReaderUI(QObject):
         self._cancelled = False
         self._ui_view.close()
         self._ui_lock.release()
-        # if not (self._pkDat) and not isinstance(self._pkDat, list) and len(self._pkDat) != 6 and self._pkDat[0] != self.peak_height and self._offset != self._pkDat[1] and self._slopeHeight != self._pkDat[2] and self.closeTopButtonFace != self._pkDat[3] and self.reversePathToration != self._pkDat[4] or self.splitWord != self._pkDat[5]:
-        #     pkFile = os.path.join(os.path.join(Resources.getStoragePath(Resources.Resources), 'plugins'), 'VectorReaderUI.pk')
-        #     self._pkDat = [
-        #         self.peak_height,
-        #         self._offset,
-        #         self._slopeHeight,
-        #         self.closeTopButtonFace,
-        #         self.reversePathToration,
-        #         self.splitWord]
-        #     pickle.dump(self._pkDat, open(pkFile, 'wb'))
+        # if not (self._pkDat) and \
+        #         not isinstance(self._pkDat, list) and\
+        #         len(self._pkDat) != 6 and\
+        #         self._pkDat[0] != self.peak_height and \
+        #         self._offset != self._pkDat[1] and \
+        #         self._slopeHeight != self._pkDat[2] and \
+        #         self.closeTopButtonFace != self._pkDat[3] and \
+        #         self.reversePathToration != self._pkDat[4] or\
+        #         self.splitWord != self._pkDat[5]:
+
+        pkFile = os.path.join(os.path.join(Resources.getStoragePath(Resources.Resources), 'plugins'), 'VectorReaderUI.pk')
+        self._pkDat = [
+            self.peak_height,
+            self._offset,
+            self._slopeHeight,
+            self.closeTopButtonFace,
+            self.reversePathToration,
+            self.splitWord]
+        pickle.dump(self._pkDat, open(pkFile, 'wb'))
 
     onOkButtonClicked = pyqtSlot()(onOkButtonClicked)
     
@@ -139,7 +151,13 @@ class VectorReaderUI(QObject):
     def onOffsetChanged(self, value):
         if self._ui_view and not (self._disable_size_callbacks):
             if len(value) > 0:
-                self._offset = float(value)
+                try:
+                    self._offset = float(value)
+                except ValueError:
+                    self._offset = 1
+                    pass
+
+
             else:
                 self._offset = 0
             self._disable_size_callbacks = True
